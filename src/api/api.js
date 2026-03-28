@@ -1,0 +1,81 @@
+import axios from 'axios';
+
+const API_URL = 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests if available
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Auth API
+export const authAPI = {
+  register: (username, email, password) =>
+    api.post('/auth/register', { username, email, password }),
+  
+  login: (email, password) =>
+    api.post('/auth/login', { email, password }),
+  
+  getCurrentUser: () =>
+    api.get('/auth/me'),
+
+  getApiKeys: () =>
+    api.get('/auth/api-keys'),
+
+  createApiKey: (name) =>
+    api.post('/auth/api-keys', { name }),
+
+  revokeApiKey: (id) =>
+    api.delete(`/auth/api-keys/${id}`),
+
+  deleteApiKey: (id) =>
+    api.delete(`/auth/api-keys/${id}/permanent`),
+
+  updateEmail: (newEmail, password) =>
+    api.put('/auth/email', { newEmail, password }),
+
+  updatePassword: (currentPassword, newPassword, confirmPassword) =>
+    api.put('/auth/password', { currentPassword, newPassword, confirmPassword }),
+};
+
+// Bookmarks API
+export const bookmarksAPI = {
+  getAll: () =>
+    api.get('/bookmarks'),
+  
+  getOne: (id) =>
+    api.get(`/bookmarks/${id}`),
+  
+  create: (bookmarkData) =>
+    api.post('/bookmarks', bookmarkData),
+  
+  update: (id, bookmarkData) =>
+    api.put(`/bookmarks/${id}`, bookmarkData),
+  
+  delete: (id) =>
+    api.delete(`/bookmarks/${id}`),
+
+  fetchMetadata: (url) =>
+    api.post('/bookmarks/meta', { url }),
+
+  fetchDescription: (url) =>
+    api.post('/bookmarks/meta-description', { url }),
+  
+  getAllTags: () =>
+    api.get('/bookmarks/tags/all'),
+};
+
+export default api;

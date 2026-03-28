@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Tagstash",
+      "type": "firefox",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "Tagstash: dev"
+    },
+    {
+      "name": "Debug Express Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "nodemon",
+      "program": "${workspaceFolder}/server/server.js",
+      "restart": true,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Tagstash: Full Stack",
+      "configurations": ["Launch Tagstash", "Debug Express Server"]
+    }
+  ]
+}
