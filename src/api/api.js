@@ -76,6 +76,9 @@ export const bookmarksAPI = {
   
   getAllTags: () =>
     api.get('/bookmarks/tags/all'),
+
+  importBookmarks: (bookmarks) =>
+    api.post('/bookmarks/import', { bookmarks }),
 };
 
 export default api;

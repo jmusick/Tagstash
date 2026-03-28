@@ -50,6 +50,14 @@
   flex-direction: column;
 }
 
+.settings-page-main {
+  grid-template-columns: 1fr;
+}
+
+.settings-page-content {
+  width: 100%;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;

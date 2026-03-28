@@ -247,6 +247,82 @@ router.get('/by-url', async (req, res) => {
   }
 });
 
+// Bulk import bookmarks
+router.post('/import', async (req, res) => {
+  const { bookmarks } = req.body;
+
+  if (!Array.isArray(bookmarks) || bookmarks.length === 0) {
+    return res.status(400).json({ error: 'bookmarks array is required' });
+  }
+
+  if (bookmarks.length > 2000) {
+    return res.status(400).json({ error: 'Cannot import more than 2000 bookmarks at once' });
+  }
+
+  const results = { imported: 0, skipped: 0 };
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (const bm of bookmarks) {
+      const { title, url, description, tags } = bm;
+
+      if (!title || !url) {
+        results.skipped++;
+        continue;
+      }
+
+      // Skip duplicates (same URL for this user)
+      const existing = await client.query(
+        'SELECT id FROM bookmarks WHERE user_id = $1 AND url = $2',
+        [req.user.id, url]
+      );
+
+      if (existing.rows.length > 0) {
+        results.skipped++;
+        continue;
+      }
+
+      const faviconUrl = getFaviconUrl(url);
+      const bookmarkResult = await client.query(
+        'INSERT INTO bookmarks (user_id, title, url, description, favicon_url) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [req.user.id, title, url, description || null, faviconUrl]
+      );
+
+      const bookmarkId = bookmarkResult.rows[0].id;
+
+      if (Array.isArray(tags) && tags.length > 0) {
+        for (const tagName of tags) {
+          // Sanitize: lowercase, replace internal spaces with hyphens
+          const sanitized = tagName.trim().toLowerCase().replace(/\s+/g, '-');
+          if (!sanitized) continue;
+
+          const tagResult = await client.query(
+            'INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+            [sanitized]
+          );
+          await client.query(
+            'INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [bookmarkId, tagResult.rows[0].id]
+          );
+        }
+      }
+
+      results.imported++;
+    }
+
+    await client.query('COMMIT');
+    res.json(results);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Server error during import' });
+  } finally {
+    client.release();
+  }
+});
+
 // Get a single bookmark
 router.get('/:id', async (req, res) => {
   try {

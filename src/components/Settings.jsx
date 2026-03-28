@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2 } from 'lucide-react';
+import Import from './Import';
 import './Settings.css';
 
-function Settings({ onClose }) {
+function Settings({ onClose, pageMode = false, onImportComplete }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('email'); // 'email' or 'password'
   const [loading, setLoading] = useState(false);
@@ -219,13 +220,15 @@ function Settings({ onClose }) {
   };
 
   return (
-    <div className="settings-container">
-      <div className="settings-panel">
+    <div className={pageMode ? 'settings-page' : 'settings-container'}>
+      <div className={`settings-panel${pageMode ? ' settings-panel-page' : ''}`}>
         <div className="settings-header">
           <h2>Account Settings</h2>
-          <button onClick={onClose} className="close-btn" title="Close settings">
-            <X size={18} />
-          </button>
+          {!pageMode && (
+            <button onClick={onClose} className="close-btn" title="Close settings">
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div className="settings-tabs">
@@ -261,6 +264,16 @@ function Settings({ onClose }) {
             }}
           >
             API Keys
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('import');
+              setError('');
+              setSuccess('');
+            }}
+          >
+            Import
           </button>
         </div>
 
@@ -474,6 +487,15 @@ function Settings({ onClose }) {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'import' && (
+          <div className="settings-import-tab">
+            <p className="settings-import-description">
+              Import bookmarks from other services into Tagstash.
+            </p>
+            <Import inline onImportComplete={onImportComplete} />
           </div>
         )}
       </div>

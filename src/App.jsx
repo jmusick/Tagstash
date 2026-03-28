@@ -11,7 +11,7 @@ function App() {
   const { user, loading: authLoading, logout } = useAuth()
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
+  const [activePage, setActivePage] = useState('bookmarks')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -355,6 +355,39 @@ function App() {
     return <Auth />
   }
 
+  if (activePage === 'settings') {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <div>
+            <h1>📚 Tagstash</h1>
+            <p>Your tag-based bookmarking companion</p>
+          </div>
+          <div className="user-info">
+            <span>Welcome, {user.username}!</span>
+            <button
+              onClick={() => setActivePage('bookmarks')}
+              className="btn-secondary"
+              title="Back to bookmarks"
+            >
+              <SettingsIcon size={16} className="btn-icon" />
+              <span>Bookmarks</span>
+            </button>
+            <button onClick={logout} className="btn-secondary">
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <main className="app-main settings-page-main">
+          <div className="main-content settings-page-content">
+            <Settings pageMode onImportComplete={fetchBookmarks} />
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -365,7 +398,7 @@ function App() {
         <div className="user-info">
           <span>Welcome, {user.username}!</span>
           <button 
-            onClick={() => setShowSettings(true)} 
+            onClick={() => setActivePage('settings')} 
             className="btn-secondary"
             title="Open settings"
           >
@@ -697,7 +730,6 @@ function App() {
         </aside>
       </main>
 
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
     </div>
   )
 }

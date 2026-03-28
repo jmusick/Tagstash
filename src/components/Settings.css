@@ -10,6 +10,10 @@
   padding: 1rem;
 }
 
+.settings-page {
+  width: 100%;
+}
+
 .settings-panel {
   background-color: #1e1e1e;
   border: 1px solid rgba(89, 89, 89, 0.5);
@@ -21,6 +25,12 @@
   overflow-y: auto;
   box-shadow: 0 14px 42px rgba(0, 0, 0, 0.45);
   color: #DCE0D9;
+}
+
+.settings-panel-page {
+  max-width: 100%;
+  max-height: none;
+  box-shadow: none;
 }
 
 .settings-header {
@@ -184,6 +194,17 @@
   display: block;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(89, 89, 89, 0.4);
+.settings-import-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.settings-import-description {
+  margin: 0;
+  opacity: 0.82;
+  font-size: 0.92rem;
+}
   border-radius: 8px;
   padding: 0.65rem;
   font-size: 0.83rem;
