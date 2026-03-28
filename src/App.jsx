@@ -59,6 +59,13 @@ function App() {
     const items = [...bookmarks]
 
     switch (sortBy) {
+      case 'lastUpdated':
+        items.sort((a, b) => {
+          const aDate = new Date(a.updated_at || a.created_at || 0)
+          const bDate = new Date(b.updated_at || b.created_at || 0)
+          return bDate - aDate
+        })
+        break
       case 'alpha':
         items.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
         break
@@ -422,6 +429,7 @@ function App() {
                 onChange={(e) => setSortBy(e.target.value)}
               >
                 <option value="date">Date saved (newest)</option>
+                <option value="lastUpdated">Last updated</option>
                 <option value="alpha">Alphabetical (A-Z)</option>
                 <option value="url">URL (A-Z)</option>
               </select>
