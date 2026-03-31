@@ -191,7 +191,9 @@ This is a personal project, but suggestions and feedback are welcome!
 
 ## License
 
-MIT
+This project is licensed under the **Tagstash Non-Commercial License (TNCL) v1.0**. See the [LICENSE](./LICENSE) file for details.
+
+The software may be used for personal and educational purposes only. Commercial use requires explicit written permission. For commercial licensing inquiries, contact: jd@orboro.net
 
 ## Author
 
