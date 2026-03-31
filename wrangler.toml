@@ -6,9 +6,11 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "tagstash-prod"
 database_id = "5e8651a3-e1b1-4500-ad4b-7d05d57b847e"
+migrations_dir = "d1/migrations"
 
 [env.preview]
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "tagstash-preview"
 database_id = "cca2c693-0ada-4c5d-ac83-4cc36b136d77"
+migrations_dir = "d1/migrations"
