@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -44,11 +44,20 @@ export const authAPI = {
   deleteApiKey: (id) =>
     api.delete(`/auth/api-keys/${id}/permanent`),
 
+  updateUsername: (newUsername, password) =>
+    api.put('/auth/username', { newUsername, password }),
+
   updateEmail: (newEmail, password) =>
     api.put('/auth/email', { newEmail, password }),
 
   updatePassword: (currentPassword, newPassword, confirmPassword) =>
     api.put('/auth/password', { currentPassword, newPassword, confirmPassword }),
+
+  adminListUsers: () =>
+    api.get('/auth/admin/users'),
+
+  adminUpdateUser: (id, updates) =>
+    api.patch(`/auth/admin/users/${id}`, updates),
 };
 
 // Bookmarks API
@@ -79,6 +88,14 @@ export const bookmarksAPI = {
 
   importBookmarks: (bookmarks) =>
     api.post('/bookmarks/import', { bookmarks }),
+};
+
+export const billingAPI = {
+  createCheckoutSession: (payload = {}) =>
+    api.post('/billing/checkout-session', payload),
+
+  createPortalSession: (payload = {}) =>
+    api.post('/billing/portal-session', payload),
 };
 
 export default api;

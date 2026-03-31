@@ -5,6 +5,8 @@ A modern, full-stack tag-based bookmarking web application built with React, Exp
 ## Features
 
 - 🔐 **User Authentication**: Secure login and registration with JWT
+- 👥 **Membership Tiers**: Free users can save up to 50 bookmarks, paid users are unlimited
+- 🛡️ **Super Admin Controls**: Configurable super admin can manage user tiers and roles
 - 🏷️ **Tag-Based Organization**: Organize bookmarks with multiple tags
 - 💾 **PostgreSQL Database**: Persistent storage for users and bookmarks
 - 🎨 **Modern UI**: Clean and responsive interface
@@ -51,6 +53,8 @@ npm install
    - The `.env` file is already configured
    - Update `DB_PASSWORD` in `.env` if needed
    - Change `JWT_SECRET` for production
+   - Optional: set `SUPER_ADMIN_EMAIL` (defaults to `jd@orboro.net`)
+   - Optional: set `BILLING_WEBHOOK_SECRET` to validate billing webhook calls
 
 4. **Database setup** (already done):
 ```bash
@@ -77,8 +81,15 @@ npm run dev:all
 ```
 
 The application will be available at:
-- **Frontend**: http://127.0.0.1:3000
-- **Backend API**: http://localhost:5000/api
+- **Frontend (this PC)**: http://localhost:3000
+- **Frontend (LAN)**: http://<PC-NAME>:3000 or http://<LAN-IP>:3000
+- **Backend API (LAN)**: http://<PC-NAME>:5000/api or http://<LAN-IP>:5000/api
+
+### LAN Access Notes
+
+- Dev servers bind to `0.0.0.0` so other devices on your network can connect.
+- Frontend API calls default to relative `/api` (proxied by Vite to `http://127.0.0.1:5000` in dev).
+- Optional: set `VITE_API_URL` in `.env` (for example `http://Ark-Prime:5000/api`) to bypass the proxy.
 
 ## Usage
 
@@ -94,6 +105,15 @@ The application will be available at:
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
 - `GET /api/auth/me` - Get current user (requires auth)
+
+### Admin (Super Admin only)
+- `GET /api/auth/admin/users` - List all user accounts with bookmark counts
+- `PATCH /api/auth/admin/users/:id` - Update a user's `membershipTier` (`free`/`paid`) and role (`user`/`super_admin`)
+
+### Billing (Placeholders for future provider integration)
+- `POST /api/billing/webhook` - Webhook receiver that upgrades/downgrades membership based on event type
+- `POST /api/billing/checkout-session` - Placeholder for provider checkout session creation (returns 501)
+- `POST /api/billing/portal-session` - Placeholder for provider billing portal creation (returns 501)
 
 ### Bookmarks
 - `GET /api/bookmarks` - Get all user's bookmarks
@@ -140,7 +160,7 @@ tagstash/
 
 ## Database Schema
 
-- **users** - User accounts (id, username, email, password_hash)
+- **users** - User accounts (id, username, email, password_hash, membership_tier, role)
 - **bookmarks** - Saved bookmarks (id, user_id, title, url, description)
 - **tags** - Tag names (id, name)
 - **bookmark_tags** - Many-to-many relationship between bookmarks and tags

@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import './App.css'
 import { useAuth } from './context/AuthContext'
-import Auth from './components/Auth'
+import Home from './components/Home'
 import Settings from './components/Settings'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI } from './api/api'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText } from 'lucide-react'
+
+const FREE_BOOKMARK_LIMIT = 50
 
 function App() {
   const { user, loading: authLoading, logout } = useAuth()
@@ -25,6 +27,7 @@ function App() {
     title: '',
     url: '',
     description: '',
+    tags: '',
   })
   const [fetchingEditDescription, setFetchingEditDescription] = useState(false)
   const [fetchingEditTitle, setFetchingEditTitle] = useState(false)
@@ -35,6 +38,13 @@ function App() {
     tags: '',
     description: ''
   })
+  const [tagsRefreshKey, setTagsRefreshKey] = useState(0)
+
+  const membershipTier = user?.membership_tier || 'free'
+  const isPaidMember = membershipTier === 'paid'
+  const bookmarkUsageCount = bookmarks.length
+  const freeUsagePercent = Math.min(100, Math.round((bookmarkUsageCount / FREE_BOOKMARK_LIMIT) * 100))
+  const isFreeLimitReached = !isPaidMember && bookmarks.length >= FREE_BOOKMARK_LIMIT
 
   useEffect(() => {
     if (user) {
@@ -193,6 +203,11 @@ function App() {
     e.preventDefault()
     setError('')
 
+    if (isFreeLimitReached) {
+      setError(`Free users can save up to ${FREE_BOOKMARK_LIMIT} bookmarks. Upgrade to paid for unlimited bookmarks.`)
+      return
+    }
+
     try {
       const tags = formData.tags
         .split(',')
@@ -220,6 +235,8 @@ function App() {
       setLastFetchedDescriptionUrl('')
       setShowAddForm(false)
       fetchBookmarks()
+      // Refresh tag cloud to include new tags
+      setTagsRefreshKey(prev => prev + 1)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create bookmark')
     }
@@ -233,6 +250,8 @@ function App() {
     try {
       await bookmarksAPI.delete(id)
       fetchBookmarks()
+      // Refresh tag cloud to update counts
+      setTagsRefreshKey(prev => prev + 1)
     } catch (err) {
       setError('Failed to delete bookmark')
     }
@@ -241,16 +260,20 @@ function App() {
   const handleStartEdit = (bookmark) => {
     setError('')
     setEditingBookmarkId(bookmark.id)
+    const tagsString = bookmark.tags && bookmark.tags.length > 0
+      ? bookmark.tags.map(tag => tag.name).join(', ')
+      : ''
     setEditFormData({
       title: bookmark.title || '',
       url: bookmark.url || '',
       description: bookmark.description || '',
+      tags: tagsString,
     })
   }
 
   const handleCancelEdit = () => {
     setEditingBookmarkId(null)
-    setEditFormData({ title: '', url: '', description: '' })
+    setEditFormData({ title: '', url: '', description: '', tags: '' })
   }
 
   const handleEditInputChange = (e) => {
@@ -283,15 +306,30 @@ function App() {
     }
 
     try {
+      const tags = editFormData.tags
+        .split(',')
+        .map(tag => tag.trim().toLowerCase())
+        .filter(tag => tag.length > 0)
+
+      // Validate tags are single words (no spaces)
+      const invalidTag = tags.find(tag => tag.includes(' '))
+      if (invalidTag) {
+        setError(`Tag "${invalidTag}" must be a single word with no spaces`)
+        return
+      }
+
       setSavingEdit(true)
       setError('')
       await bookmarksAPI.update(bookmarkId, {
         title: editFormData.title.trim(),
         url: editFormData.url.trim(),
         description: editFormData.description.trim() || null,
+        tags,
       })
       handleCancelEdit()
       fetchBookmarks()
+      // Refresh tag cloud to include any new tags
+      setTagsRefreshKey(prev => prev + 1)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update bookmark')
     } finally {
@@ -359,7 +397,7 @@ function App() {
   }
 
   if (!user) {
-    return <Auth />
+    return <Home />
   }
 
   if (activePage === 'settings') {
@@ -456,6 +494,7 @@ function App() {
             <button 
               className="btn-primary"
               onClick={() => setShowAddForm(!showAddForm)}
+              disabled={isFreeLimitReached && !showAddForm}
             >
               {!showAddForm && <Plus size={16} className="btn-icon" />}
               <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
@@ -474,6 +513,11 @@ function App() {
         {showAddForm && (
           <div className="add-bookmark-form">
             <h2>Add New Bookmark</h2>
+            {isFreeLimitReached && (
+              <p className="usage-limit-warning">
+                Free plan limit reached ({FREE_BOOKMARK_LIMIT} bookmarks). Upgrade to paid to continue adding bookmarks.
+              </p>
+            )}
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <div className="field-header">
@@ -560,6 +604,26 @@ function App() {
               </div>
             </form>
           </div>
+        )}
+
+        {!isPaidMember && (
+          <section className="membership-summary membership-summary-free">
+            <div className="membership-summary-head">
+              <strong>Free Plan</strong>
+              <span>{bookmarkUsageCount} / {FREE_BOOKMARK_LIMIT} bookmarks used</span>
+            </div>
+            <div className="usage-meter" aria-hidden="true">
+              <div className="usage-meter-bar" style={{ width: `${freeUsagePercent}%` }} />
+            </div>
+            <div className="membership-summary-actions">
+              <button type="button" className="upgrade-placeholder-link" aria-disabled="true">
+                Upgrade
+              </button>
+            </div>
+            {isFreeLimitReached && (
+              <p className="usage-limit-warning">You reached the free limit. Upgrade to paid to keep adding bookmarks.</p>
+            )}
+          </section>
         )}
 
         <div className="bookmarks-section">
@@ -680,6 +744,18 @@ function App() {
                           rows="3"
                         />
                       </div>
+                      <div className="form-group">
+                        <label htmlFor={`edit-tags-${bookmark.id}`}>Tags</label>
+                        <input
+                          id={`edit-tags-${bookmark.id}`}
+                          type="text"
+                          name="tags"
+                          value={editFormData.tags}
+                          onChange={handleEditInputChange}
+                          placeholder="javascript, react, tutorial"
+                        />
+                        <small>Separate tags with commas</small>
+                      </div>
                       <div className="bookmark-edit-actions">
                         <button
                           type="button"
@@ -734,7 +810,7 @@ function App() {
               </button>
             </div>
           )}
-          <TagCloud selectedTag={selectedTag} onTagSelect={handleTagSelect} />
+          <TagCloud selectedTag={selectedTag} onTagSelect={handleTagSelect} refreshKey={tagsRefreshKey} />
         </aside>
       </main>
 

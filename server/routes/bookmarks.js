@@ -1,8 +1,36 @@
 import express from 'express';
 import pool from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { FREE_BOOKMARK_LIMIT, isPaidTier } from '../config/membership.js';
 
 const router = express.Router();
+
+const getUserPlanStatus = async (client, userId) => {
+  const userResult = await client.query(
+    'SELECT membership_tier FROM users WHERE id = $1 FOR UPDATE',
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    return null;
+  }
+
+  const membershipTier = userResult.rows[0].membership_tier;
+  const bookmarkCountResult = await client.query(
+    'SELECT COUNT(*)::INTEGER AS count FROM bookmarks WHERE user_id = $1',
+    [userId]
+  );
+
+  const bookmarkCount = bookmarkCountResult.rows[0].count;
+  const paidTier = isPaidTier(membershipTier);
+
+  return {
+    membershipTier,
+    bookmarkCount,
+    paidTier,
+    remainingSlots: paidTier ? null : Math.max(FREE_BOOKMARK_LIMIT - bookmarkCount, 0),
+  };
+};
 
 const FETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -15,7 +43,7 @@ const extractDomain = (url) => {
   try {
     const urlObj = new URL(url);
     return urlObj.hostname;
-  } catch (error) {
+  } catch {
     return 'favicon';
   }
 };
@@ -259,17 +287,39 @@ router.post('/import', async (req, res) => {
     return res.status(400).json({ error: 'Cannot import more than 2000 bookmarks at once' });
   }
 
-  const results = { imported: 0, skipped: 0 };
+  const results = { imported: 0, skipped: 0, limitReached: false };
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
+
+    const planStatus = await getUserPlanStatus(client, req.user.id);
+
+    if (!planStatus) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!planStatus.paidTier && planStatus.bookmarkCount >= FREE_BOOKMARK_LIMIT) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        error: `Free users can save up to ${FREE_BOOKMARK_LIMIT} bookmarks. Upgrade to paid for unlimited bookmarks.`,
+      });
+    }
+
+    let remainingSlots = planStatus.remainingSlots;
 
     for (const bm of bookmarks) {
       const { title, url, description, tags } = bm;
 
       if (!title || !url) {
         results.skipped++;
+        continue;
+      }
+
+      if (!planStatus.paidTier && remainingSlots <= 0) {
+        results.skipped++;
+        results.limitReached = true;
         continue;
       }
 
@@ -310,10 +360,18 @@ router.post('/import', async (req, res) => {
       }
 
       results.imported++;
+
+      if (!planStatus.paidTier) {
+        remainingSlots -= 1;
+      }
     }
 
     await client.query('COMMIT');
-    res.json(results);
+    res.json({
+      ...results,
+      membership_tier: planStatus.membershipTier,
+      bookmark_limit: planStatus.paidTier ? null : FREE_BOOKMARK_LIMIT,
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Import error:', error);
@@ -380,6 +438,20 @@ router.post('/', async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const planStatus = await getUserPlanStatus(client, req.user.id);
+
+      if (!planStatus) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (!planStatus.paidTier && planStatus.bookmarkCount >= FREE_BOOKMARK_LIMIT) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          error: `Free users can save up to ${FREE_BOOKMARK_LIMIT} bookmarks. Upgrade to paid for unlimited bookmarks.`,
+        });
+      }
 
       // Insert bookmark
       const faviconUrl = getFaviconUrl(url);

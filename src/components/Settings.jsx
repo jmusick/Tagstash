@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2 } from 'lucide-react';
@@ -6,23 +6,53 @@ import Import from './Import';
 import './Settings.css';
 
 function Settings({ onClose, pageMode = false, onImportComplete }) {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('email'); // 'email' or 'password'
+  const { user, updateUser } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const [activeTab, setActiveTab] = useState('username');
   const [loading, setLoading] = useState(false);
   const [loadingKeys, setLoadingKeys] = useState(false);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
+  const [savingAdminUserId, setSavingAdminUserId] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [apiKeys, setApiKeys] = useState([]);
+  const [adminUsers, setAdminUsers] = useState([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [generatedApiKey, setGeneratedApiKey] = useState('');
   const [showRevokedKeys, setShowRevokedKeys] = useState(false);
   const [revealedApiKeys, setRevealedApiKeys] = useState({});
+
+  // Username form state
+  const [usernameForm, setUsernameForm] = useState({
+    newUsername: user?.username || '',
+    password: '',
+  });
 
   // Email form state
   const [emailForm, setEmailForm] = useState({
     newEmail: user?.email || '',
     password: '',
   });
+
+  useEffect(() => {
+    setUsernameForm((prev) => ({
+      ...prev,
+      newUsername: user?.username || '',
+    }));
+
+    setEmailForm((prev) => ({
+      ...prev,
+      newEmail: user?.email || '',
+    }));
+  }, [user]);
+
+  const handleUsernameChange = (e) => {
+    setUsernameForm({
+      ...usernameForm,
+      [e.target.name]: e.target.value,
+    });
+    setError('');
+  };
 
   // Password form state
   const [passwordForm, setPasswordForm] = useState({
@@ -56,6 +86,50 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
       setError(err.response?.data?.error || 'Failed to fetch API keys');
     } finally {
       setLoadingKeys(false);
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    if (!isSuperAdmin) {
+      return;
+    }
+
+    try {
+      setLoadingAdminUsers(true);
+      const response = await authAPI.adminListUsers();
+      setAdminUsers(response.data.users || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch users');
+    } finally {
+      setLoadingAdminUsers(false);
+    }
+  };
+
+  const handleAdminFieldChange = (id, field, value) => {
+    setAdminUsers((prev) =>
+      prev.map((member) =>
+        member.id === id
+          ? { ...member, [field]: value }
+          : member
+      )
+    );
+  };
+
+  const handleSaveAdminUser = async (member) => {
+    try {
+      setSavingAdminUserId(member.id);
+      setError('');
+      setSuccess('');
+      await authAPI.adminUpdateUser(member.id, {
+        membershipTier: member.membership_tier,
+        role: member.role,
+      });
+      setSuccess(`Updated ${member.email}`);
+      await fetchAdminUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update user access');
+    } finally {
+      setSavingAdminUserId(null);
     }
   };
 
@@ -144,6 +218,47 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
     ? apiKeys
     : apiKeys.filter((key) => !key.revoked_at);
 
+  const handleUsernameSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const trimmedUsername = usernameForm.newUsername.trim();
+
+      if (!trimmedUsername || !usernameForm.password) {
+        setError('Both fields are required');
+        setLoading(false);
+        return;
+      }
+
+      if (/\s/.test(trimmedUsername)) {
+        setError('Username cannot contain spaces');
+        setLoading(false);
+        return;
+      }
+
+      if (trimmedUsername === user?.username) {
+        setError('New username must be different from current username');
+        setLoading(false);
+        return;
+      }
+
+      const response = await authAPI.updateUsername(trimmedUsername, usernameForm.password);
+      updateUser(response.data.user);
+      setSuccess('Username updated successfully!');
+      setUsernameForm({
+        newUsername: response.data.user.username,
+        password: '',
+      });
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update username');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -163,10 +278,11 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
         return;
       }
 
-      await authAPI.updateEmail(emailForm.newEmail, emailForm.password);
+      const response = await authAPI.updateEmail(emailForm.newEmail, emailForm.password);
+      updateUser(response.data.user);
       setSuccess('Email updated successfully!');
       setEmailForm({
-        newEmail: emailForm.newEmail,
+        newEmail: response.data.user.email,
         password: '',
       });
     } catch (err) {
@@ -233,6 +349,17 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
 
         <div className="settings-tabs">
           <button
+            className={`tab-btn ${activeTab === 'username' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('username');
+              setError('');
+              setSuccess('');
+              setGeneratedApiKey('');
+            }}
+          >
+            Username
+          </button>
+          <button
             className={`tab-btn ${activeTab === 'email' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('email');
@@ -275,10 +402,72 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           >
             Import
           </button>
+          {isSuperAdmin && (
+            <button
+              className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('admin');
+                setError('');
+                setSuccess('');
+                fetchAdminUsers();
+              }}
+            >
+              Admin
+            </button>
+          )}
         </div>
 
         {error && <div className="settings-error">{error}</div>}
         {success && <div className="settings-success">{success}</div>}
+
+        {activeTab === 'username' && (
+          <form onSubmit={handleUsernameSubmit} className="settings-form">
+            <div className="form-field">
+              <label htmlFor="current-username">Current Username</label>
+              <input
+                type="text"
+                id="current-username"
+                value={user?.username || ''}
+                disabled
+                className="input-disabled"
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="new-username">New Username</label>
+              <input
+                type="text"
+                id="new-username"
+                name="newUsername"
+                value={usernameForm.newUsername}
+                onChange={handleUsernameChange}
+                required
+                minLength={2}
+                maxLength={50}
+                placeholder="Enter your new username"
+                pattern="\S+"
+                title="Username cannot contain spaces"
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="username-password">Password (for verification)</label>
+              <input
+                type="password"
+                id="username-password"
+                name="password"
+                value={usernameForm.password}
+                onChange={handleUsernameChange}
+                required
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Updating...' : 'Update Username'}
+            </button>
+          </form>
+        )}
 
         {activeTab === 'email' && (
           <form onSubmit={handleEmailSubmit} className="settings-form">
@@ -496,6 +685,67 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
               Import bookmarks from other services into Tagstash.
             </p>
             <Import inline onImportComplete={onImportComplete} />
+          </div>
+        )}
+
+        {activeTab === 'admin' && isSuperAdmin && (
+          <div className="admin-users-panel">
+            <p className="admin-users-description">
+              Manage account access. Free users are limited to 50 bookmarks; paid users are unlimited.
+            </p>
+
+            {loadingAdminUsers ? (
+              <p className="admin-users-empty">Loading users...</p>
+            ) : adminUsers.length === 0 ? (
+              <p className="admin-users-empty">No users found.</p>
+            ) : (
+              <div className="admin-users-list">
+                {adminUsers.map((member) => (
+                  <div key={member.id} className="admin-user-row">
+                    <div className="admin-user-meta">
+                      <p className="admin-user-name">{member.username}</p>
+                      <p className="admin-user-email">{member.email}</p>
+                      <p className="admin-user-count">Bookmarks: {member.bookmark_count}</p>
+                    </div>
+
+                    <div className="admin-user-controls">
+                      <label>
+                        Tier
+                        <select
+                          value={member.membership_tier}
+                          onChange={(e) =>
+                            handleAdminFieldChange(member.id, 'membership_tier', e.target.value)
+                          }
+                        >
+                          <option value="free">free</option>
+                          <option value="paid">paid</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        Role
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleAdminFieldChange(member.id, 'role', e.target.value)}
+                        >
+                          <option value="user">user</option>
+                          <option value="super_admin">super_admin</option>
+                        </select>
+                      </label>
+
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => handleSaveAdminUser(member)}
+                        disabled={savingAdminUserId === member.id}
+                      >
+                        {savingAdminUserId === member.id ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

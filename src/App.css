@@ -50,6 +50,71 @@
   flex-direction: column;
 }
 
+.membership-summary {
+  border: 1px solid rgba(128, 143, 133, 0.35);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  background: rgba(89, 89, 89, 0.14);
+  margin-bottom: 1rem;
+}
+
+.membership-summary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.membership-summary-head span {
+  opacity: 0.82;
+}
+
+.membership-summary-free {
+  border-color: rgba(128, 143, 133, 0.35);
+  background: rgba(89, 89, 89, 0.14);
+}
+
+.usage-meter {
+  margin-top: 0.6rem;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.usage-meter-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #808F85, #6B0F1A);
+  transition: width 0.25s ease;
+}
+
+.membership-summary-actions {
+  margin-top: 0.65rem;
+}
+
+.upgrade-placeholder-link {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #c9d8ce;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: default;
+  opacity: 0.9;
+}
+
+.usage-limit-warning {
+  margin: 0.55rem 0 0;
+  color: #ff9797;
+  font-size: 0.86rem;
+}
+
 .settings-page-main {
   grid-template-columns: 1fr;
 }

@@ -323,6 +323,11 @@ function Import({ onClose, onImportComplete, inline = false }) {
           {result.skipped > 0 && (
             <p className="import-skipped"><strong>{result.skipped}</strong> skipped (duplicates or missing data)</p>
           )}
+          {result.limitReached && (
+            <p className="import-skipped">
+              Free plan limit reached during import. Upgrade to paid for unlimited bookmarks.
+            </p>
+          )}
           <div className="import-actions">
             {!inline && (
               <button className="btn-primary" onClick={onClose}>Done</button>

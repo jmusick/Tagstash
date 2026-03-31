@@ -31,6 +31,12 @@ function Auth() {
     if (isLogin) {
       result = await login(formData.email, formData.password);
     } else {
+      if (/\s/.test(formData.username.trim())) {
+        setError('Username cannot contain spaces');
+        setLoading(false);
+        return;
+      }
+
       if (formData.password.length < 6) {
         setError('Password must be at least 6 characters');
         setLoading(false);
@@ -72,6 +78,8 @@ function Auth() {
                 onChange={handleChange}
                 required
                 placeholder="Enter your username"
+                pattern="\S+"
+                title="Username cannot contain spaces"
               />
             </div>
           )}

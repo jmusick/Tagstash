@@ -16,15 +16,17 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const refreshCurrentUser = async () => {
+    const response = await authAPI.getCurrentUser();
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
   useEffect(() => {
     // Check if user is already  logged in
     const token = localStorage.getItem('token');
     if (token) {
-      authAPI
-        .getCurrentUser()
-        .then((response) => {
-          setUser(response.data.user);
-        })
+      refreshCurrentUser()
         .catch(() => {
           localStorage.removeItem('token');
         })
@@ -69,6 +71,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateUser = (nextUser) => {
+    setUser(nextUser);
+  };
+
   const value = {
     user,
     loading,
@@ -76,6 +82,8 @@ export const AuthProvider = ({ children }) => {
     register,
     login,
     logout,
+    refreshCurrentUser,
+    updateUser,
     isAuthenticated: !!user,
   };
 

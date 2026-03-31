@@ -1,17 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { bookmarksAPI } from '../api/api';
 import { Tag } from 'lucide-react';
 import './TagCloud.css';
 
-function TagCloud({ selectedTag = '', onTagSelect }) {
+function TagCloud({ selectedTag = '', onTagSelect, refreshKey = 0 }) {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchTags();
-  }, []);
-
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     try {
       setLoading(true);
       const response = await bookmarksAPI.getAllTags();
@@ -21,7 +17,11 @@ function TagCloud({ selectedTag = '', onTagSelect }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTags();
+  }, [refreshKey, fetchTags]);
 
   const getTagSize = (index, totalTags) => {
     // Distribute tags in 3 size categories

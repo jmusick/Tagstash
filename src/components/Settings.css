@@ -317,6 +317,86 @@
   font-size: 0.9rem;
 }
 
+.admin-users-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.admin-users-description {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.82;
+}
+
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.admin-user-row {
+  border: 1px solid rgba(89, 89, 89, 0.45);
+  border-radius: 10px;
+  background: rgba(89, 89, 89, 0.1);
+  padding: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.admin-user-meta {
+  min-width: 160px;
+}
+
+.admin-user-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.admin-user-email,
+.admin-user-count {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  opacity: 0.82;
+}
+
+.admin-user-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.admin-user-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.admin-user-controls select {
+  border: 1px solid rgba(220, 224, 217, 0.28);
+  border-radius: 7px;
+  font-family: inherit;
+  background-color: #2a2a2a;
+  color: #DCE0D9;
+  padding: 0.45rem 0.5rem;
+}
+
+.admin-user-controls .btn-primary {
+  grid-column: span 2;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.84rem;
+}
+
+.admin-users-empty {
+  margin: 0;
+  opacity: 0.78;
+  font-size: 0.9rem;
+}
+
 @media (prefers-color-scheme: light) {
   .form-field input {
     background-color: #f0f2ef;
