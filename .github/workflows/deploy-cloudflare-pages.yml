@@ -7,7 +7,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply D1 migrations (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply tagstash-prod --remote
+
   deploy:
+    needs: migrate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

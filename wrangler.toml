@@ -1,0 +1,14 @@
+name = "tagstash"
+compatibility_date = "2026-03-31"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tagstash-prod"
+database_id = "5e8651a3-e1b1-4500-ad4b-7d05d57b847e"
+
+[env.preview]
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "tagstash-preview"
+database_id = "cca2c693-0ada-4c5d-ac83-4cc36b136d77"
