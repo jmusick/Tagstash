@@ -41,7 +41,7 @@ const normalizeEmail = (email) =>
   typeof email === 'string' ? email.trim().toLowerCase() : '';
 
 const superAdminEmail = (env) =>
-  normalizeEmail(env.SUPER_ADMIN_EMAIL || 'jd@orboro.net');
+  normalizeEmail(env.SUPER_ADMIN_EMAIL || '');
 
 const isSuperAdminEmail = (email, env) =>
   normalizeEmail(email) === superAdminEmail(env);

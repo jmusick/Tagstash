@@ -52,7 +52,7 @@ npm install
    - Copy `.dev.vars.example` to `.dev.vars`
    - Set `JWT_SECRET`
    - Optional: set `API_KEY_ENCRYPTION_SECRET` (defaults to `JWT_SECRET` when omitted)
-   - Optional: set `SUPER_ADMIN_EMAIL` (defaults to `jd@orboro.net`)
+   - Set `SUPER_ADMIN_EMAIL` to your account email address
    - Optional: set `BILLING_WEBHOOK_SECRET` to validate billing webhook calls
 
 4. **Database setup**:
