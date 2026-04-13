@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { version } from '../package.json'
 import './App.css'
 import { useAuth } from './context/AuthContext'
 import Home from './components/Home'
@@ -813,6 +814,9 @@ function App() {
           <TagCloud selectedTag={selectedTag} onTagSelect={handleTagSelect} refreshKey={tagsRefreshKey} />
         </aside>
       </main>
+      <footer className="app-footer">
+        <span className="version">v{version}</span>
+      </footer>
 
     </div>
   )

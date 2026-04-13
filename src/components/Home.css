@@ -283,6 +283,11 @@
   font-size: 0.9rem;
 }
 
+.home-footer .version {
+  opacity: 0.5;
+  font-size: 0.8rem;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .hero-section {

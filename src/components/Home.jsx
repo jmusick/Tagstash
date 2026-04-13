@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Github } from 'lucide-react';
+import { version } from '../../package.json';
 import './Home.css';
 
 function Home() {
@@ -221,7 +222,7 @@ function Home() {
 
       {/* Footer */}
       <footer className="home-footer">
-        <p>&copy; 2024 Tagstash. Made with care.</p>
+        <p>&copy; 2024 Tagstash. Made with care. &nbsp;<span className="version">v{version}</span></p>
       </footer>
     </div>
   );

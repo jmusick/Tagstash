@@ -2,6 +2,19 @@
   width: 100%;
 }
 
+.app-footer {
+  text-align: right;
+  padding: 1rem 2rem;
+  border-top: 1px solid rgba(128, 143, 133, 0.15);
+  margin-top: 2rem;
+}
+
+.app-footer .version {
+  color: #696C6F;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
 .app-header {
   text-align: left;
   margin-bottom: 2rem;
