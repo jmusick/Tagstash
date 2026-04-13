@@ -9,7 +9,6 @@
     "dev:api": "wrangler pages dev . --local --port 5000 --proxy 3000",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "setup:db": "wrangler d1 migrations apply tagstash-prod --local",
-    "migrate": "wrangler d1 migrations apply tagstash-prod --local",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
@@ -17,9 +16,6 @@
   "dependencies": {
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
     "jose": "^6.2.2",
     "lucide-react": "^0.577.0",
     "react": "^18.3.1",

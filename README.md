@@ -37,12 +37,13 @@ A modern, full-stack tag-based bookmarking web application built with React, Clo
 
 ### Installation
 
-1. **Navigate to the project directory**:
+1. **Clone or navigate to the project directory**:
 ```bash
-cd c:\Projects\Tagstash
+git clone https://github.com/jmusick/Tagstash.git
+cd Tagstash
 ```
 
-2. **Install dependencies** (already done):
+2. **Install dependencies**:
 ```bash
 npm install
 ```
@@ -148,6 +149,9 @@ tagstash/
 - `npm run dev:api` - Start local Cloudflare Pages Functions API with D1
 - `npm run dev:all` - Run frontend and API concurrently
 - `npm run setup:db` - Apply local D1 migrations
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build locally
+- `npm run lint` - Run ESLint
 - `npm run migrate` - Apply local D1 migrations
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
