@@ -411,7 +411,7 @@ function App() {
           <div className="user-info">
             <span>Welcome, {user.username}!</span>
             <button
-              onClick={() => setActivePage('bookmarks')}
+              onClick={() => { setActivePage('bookmarks'); fetchBookmarks(); }}
               className="btn-secondary"
               title="Back to bookmarks"
             >
