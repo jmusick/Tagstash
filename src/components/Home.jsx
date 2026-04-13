@@ -92,7 +92,7 @@ function Home() {
     }
   ];
 
-  const tech = ['React', 'Node.js', 'Express', 'PostgreSQL', 'JWT Auth'];
+  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth'];
 
   return (
     <div className="home-container">

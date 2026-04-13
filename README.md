@@ -1,6 +1,6 @@
 # 📚 Tagstash
 
-A modern, full-stack tag-based bookmarking web application built with React, Express, and PostgreSQL. Organize your favorite links with custom tags, user authentication, and persistent storage.
+A modern, full-stack tag-based bookmarking web application built with React, Cloudflare Pages Functions, and D1 (SQLite). Organize your favorite links with custom tags, user authentication, and persistent storage.
 
 ## Features
 
@@ -8,7 +8,7 @@ A modern, full-stack tag-based bookmarking web application built with React, Exp
 - 👥 **Membership Tiers**: Free users can save up to 50 bookmarks, paid users are unlimited
 - 🛡️ **Super Admin Controls**: Configurable super admin can manage user tiers and roles
 - 🏷️ **Tag-Based Organization**: Organize bookmarks with multiple tags
-- 💾 **PostgreSQL Database**: Persistent storage for users and bookmarks
+- 💾 **Cloudflare D1 Database**: Persistent storage for users and bookmarks
 - 🎨 **Modern UI**: Clean and responsive interface
 - ⚡ **Fast**: Built with Vite for lightning-fast development
 - 🌙 **Dark Mode**: Supports light and dark color schemes
@@ -23,18 +23,16 @@ A modern, full-stack tag-based bookmarking web application built with React, Exp
 - **Context API** - State management
 
 ### Backend
-- **Node.js** - Runtime
-- **Express** - Web framework
-- **PostgreSQL** - Database
+- **Cloudflare Pages Functions** - API runtime
+- **Cloudflare D1 (SQLite)** - Database
 - **bcryptjs** - Password hashing
-- **jsonwebtoken** - JWT authentication
+- **jose** - JWT authentication
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (version 16 or higher)
-- PostgreSQL 18 (or compatible version)
+- Node.js (version 18 or higher)
 - npm or yarn
 
 ### Installation
@@ -50,24 +48,24 @@ npm install
 ```
 
 3. **Configure environment variables**:
-   - The `.env` file is already configured
-   - Update `DB_PASSWORD` in `.env` if needed
-   - Change `JWT_SECRET` for production
+   - Copy `.dev.vars.example` to `.dev.vars`
+   - Set `JWT_SECRET`
+   - Optional: set `API_KEY_ENCRYPTION_SECRET` (defaults to `JWT_SECRET` when omitted)
    - Optional: set `SUPER_ADMIN_EMAIL` (defaults to `jd@orboro.net`)
    - Optional: set `BILLING_WEBHOOK_SECRET` to validate billing webhook calls
 
-4. **Database setup** (already done):
+4. **Database setup**:
 ```bash
 npm run setup:db
 ```
 
 ### Running the Application
 
-**Option 1: Run frontend and backend separately**
+**Option 1: Run frontend and API separately**
 
-Terminal 1 (Backend):
+Terminal 1 (API + local D1 via Wrangler):
 ```bash
-npm run server
+npm run dev:api
 ```
 
 Terminal 2 (Frontend):
@@ -83,7 +81,7 @@ npm run dev:all
 The application will be available at:
 - **Frontend (this PC)**: http://localhost:3000
 - **Frontend (LAN)**: http://<PC-NAME>:3000 or http://<LAN-IP>:3000
-- **Backend API (LAN)**: http://<PC-NAME>:5000/api or http://<LAN-IP>:5000/api
+- **API (LAN)**: http://<PC-NAME>:5000/api or http://<LAN-IP>:5000/api
 
 ### LAN Access Notes
 
@@ -127,23 +125,19 @@ The application will be available at:
 
 ```
 tagstash/
+├── d1/                  # D1 migrations
+│   └── migrations/
+├── functions/           # Cloudflare Pages Functions API
+│   └── api/
 ├── public/              # Static assets
-├── server/              # Backend code
-│   ├── db.js           # Database connection
-│   ├── server.js       # Express server
-│   ├── schema.sql      # Database schema
-│   ├── setup.js        # Database setup script
-│   ├── middleware/     # Auth middleware
-│   └── routes/         # API routes
-│       ├── auth.js     # Authentication endpoints
-│       └── bookmarks.js # Bookmark endpoints
 ├── src/                # Frontend code
 │   ├── api/            # API client
 │   ├── components/     # React components
 │   ├── context/        # React context (auth)
 │   ├── App.jsx         # Main app component
 │   └── main.jsx        # Entry point
-├── .env                # Environment variables (DO NOT COMMIT)
+├── .dev.vars           # Local API secrets (DO NOT COMMIT)
+├── .env                # Frontend env vars (DO NOT COMMIT)
 ├── package.json        # Dependencies and scripts
 └── vite.config.js      # Vite configuration
 ```
@@ -151,9 +145,10 @@ tagstash/
 ## Available Scripts
 
 - `npm run dev` - Start frontend development server
-- `npm run server` - Start backend server with auto-reload
-- `npm run dev:all` - Run both frontend and backend concurrently
-- `npm run setup:db` - Initialize database schema
+- `npm run dev:api` - Start local Cloudflare Pages Functions API with D1
+- `npm run dev:all` - Run frontend and API concurrently
+- `npm run setup:db` - Apply local D1 migrations
+- `npm run migrate` - Apply local D1 migrations
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
