@@ -1,5 +1,3 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
@@ -56,19 +54,3 @@ CREATE INDEX IF NOT EXISTS idx_bookmark_tags_bookmark_id ON bookmark_tags(bookma
 CREATE INDEX IF NOT EXISTS idx_bookmark_tags_tag_id ON bookmark_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
-
-CREATE TRIGGER IF NOT EXISTS update_users_updated_at
-AFTER UPDATE ON users
-FOR EACH ROW
-WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS update_bookmarks_updated_at
-AFTER UPDATE ON bookmarks
-FOR EACH ROW
-WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE bookmarks SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
-END;

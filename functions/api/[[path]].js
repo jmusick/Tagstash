@@ -221,7 +221,7 @@ const signUserToken = async (user, env) =>
 const ensureUserRoleMatchesConfig = async (db, user, env) => {
   const expectedRole = getRoleForEmail(user.email, env);
   if (user.role !== expectedRole) {
-    await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind(expectedRole, user.id).run();
+    await db.prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(expectedRole, user.id).run();
     user.role = expectedRole;
   }
   return user;
@@ -445,7 +445,7 @@ const processBillingWebhookEvent = async (db, event) => {
   }
 
   await db
-    .prepare('UPDATE users SET membership_tier = ? WHERE id = ?')
+    .prepare('UPDATE users SET membership_tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
     .bind(nextTier, user.id)
     .run();
 
@@ -626,7 +626,7 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Incorrect password' }, 401);
     }
 
-    await db.prepare('UPDATE users SET username = ? WHERE id = ?').bind(trimmedUsername, auth.user.id).run();
+    await db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(trimmedUsername, auth.user.id).run();
 
     const updatedUser = await db
       .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
@@ -673,7 +673,7 @@ async function handleAuth(request, env, segments) {
     const updatedRole = getRoleForEmail(normalizedNewEmail, env);
 
     await db
-      .prepare('UPDATE users SET email = ?, role = ? WHERE id = ?')
+      .prepare('UPDATE users SET email = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(normalizedNewEmail, updatedRole, auth.user.id)
       .run();
 
@@ -722,7 +722,7 @@ async function handleAuth(request, env, segments) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, auth.user.id).run();
+    await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(passwordHash, auth.user.id).run();
 
     return jsonResponse({ message: 'Password updated successfully' });
   }
@@ -930,7 +930,7 @@ async function handleAuth(request, env, segments) {
     }
 
     await db
-      .prepare('UPDATE users SET membership_tier = ?, role = ? WHERE id = ?')
+      .prepare('UPDATE users SET membership_tier = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(nextMembershipTier, nextRole, targetId)
       .run();
 
