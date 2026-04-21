@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Github } from 'lucide-react';
+import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun } from 'lucide-react';
 import { version } from '../../package.json';
 import './Home.css';
 
-function Home() {
+function Home({ logoSrc, theme, onToggleTheme }) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -97,11 +97,22 @@ function Home() {
 
   return (
     <div className="home-container">
+      <div className="home-topbar">
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="theme-toggle-btn home-theme-toggle"
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+      </div>
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">
           <h1 className="hero-title">
-            <span className="hero-emoji">📚</span> Tagstash
+            <img src={logoSrc} alt="Tagstash" className="hero-logo" />
           </h1>
           <p className="hero-subtitle">A better way to bookmark the web</p>
           
@@ -222,7 +233,10 @@ function Home() {
 
       {/* Footer */}
       <footer className="home-footer">
-        <p>&copy; 2024 Tagstash. Made with care. &nbsp;<span className="version">v{version}</span></p>
+        <p>&copy; {new Date().getFullYear()} Tagstash &nbsp;&middot;&nbsp;
+          <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
+          &nbsp;&middot;&nbsp;<span className="version">v{version}</span>
+        </p>
       </footer>
     </div>
   );

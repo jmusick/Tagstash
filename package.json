@@ -1,14 +1,14 @@
 {
   "name": "tagstash",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "A tag-based bookmarking web application",
   "scripts": {
     "dev": "vite",
     "dev:api": "wrangler pages dev . --local --port 5000 --proxy 3000",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
-    "setup:db": "wrangler d1 migrations apply tagstash-prod --local",
+    "setup:db": "wrangler d1 migrations apply tagstash-db --local",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"

@@ -4,14 +4,30 @@ import './App.css'
 import { useAuth } from './context/AuthContext'
 import Home from './components/Home'
 import Settings from './components/Settings'
+import PolicyPage from './components/PolicyPage'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI } from './api/api'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
+const THEME_STORAGE_KEY = 'tagstash-theme'
+
+const getInitialTheme = () => {
+  if (typeof window === 'undefined') {
+    return 'dark'
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme
+  }
+
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+}
 
 function App() {
   const { user, loading: authLoading, logout } = useAuth()
+  const [theme, setTheme] = useState(getInitialTheme)
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [activePage, setActivePage] = useState('bookmarks')
@@ -46,12 +62,23 @@ function App() {
   const bookmarkUsageCount = bookmarks.length
   const freeUsagePercent = Math.min(100, Math.round((bookmarkUsageCount / FREE_BOOKMARK_LIMIT) * 100))
   const isFreeLimitReached = !isPaidMember && bookmarks.length >= FREE_BOOKMARK_LIMIT
+  const logoSrc = theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.style.colorScheme = theme
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
 
   useEffect(() => {
     if (user) {
       fetchBookmarks()
     }
   }, [user])
+
+  const toggleTheme = () => {
+    setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
+  }
 
   const fetchBookmarks = async () => {
     try {
@@ -397,19 +424,37 @@ function App() {
     )
   }
 
+  if (activePage === 'privacy') {
+    return (
+      <PolicyPage
+        logoSrc={logoSrc}
+        onBack={() => setActivePage(user ? 'bookmarks' : 'home')}
+      />
+    )
+  }
+
   if (!user) {
-    return <Home />
+    return <Home logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} onNavigate={setActivePage} />
   }
 
   if (activePage === 'settings') {
     return (
       <div className="app">
         <header className="app-header">
-          <div>
-            <h1>📚 Tagstash</h1>
-            <p>Your tag-based bookmarking companion</p>
+          <div className="app-header-brand">
+            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+            <p className="app-header-tagline">Your tag-based bookmarking companion</p>
           </div>
           <div className="user-info">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="theme-toggle-btn"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <span>Welcome, {user.username}!</span>
             <button
               onClick={() => { setActivePage('bookmarks'); fetchBookmarks(); }}
@@ -430,6 +475,11 @@ function App() {
             <Settings pageMode onImportComplete={fetchBookmarks} />
           </div>
         </main>
+        <footer className="app-footer">
+          <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
+          <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
+          <span className="version">v{version}</span>
+        </footer>
       </div>
     )
   }
@@ -437,11 +487,20 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <h1>📚 Tagstash</h1>
-          <p>Your tag-based bookmarking companion</p>
+        <div className="app-header-brand">
+            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+          <p className="app-header-tagline">Your tag-based bookmarking companion</p>
         </div>
         <div className="user-info">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="theme-toggle-btn"
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <span>Welcome, {user.username}!</span>
           <button 
             onClick={() => setActivePage('settings')} 
@@ -815,6 +874,8 @@ function App() {
         </aside>
       </main>
       <footer className="app-footer">
+        <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
+        <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
         <span className="version">v{version}</span>
       </footer>
 

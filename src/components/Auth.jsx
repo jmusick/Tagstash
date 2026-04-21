@@ -61,7 +61,12 @@ function Auth() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title">📚 Tagstash</h1>
+        <h1 className="auth-title">
+          <picture>
+            <source srcSet="/tagstash-logo-light.svg" media="(prefers-color-scheme: light)" />
+            <img src="/tagstash-logo-dark.svg" alt="Tagstash" className="auth-title-logo" />
+          </picture>
+        </h1>
         <p className="auth-subtitle">
           {isLogin ? 'Welcome back!' : 'Create your account'}
         </p>

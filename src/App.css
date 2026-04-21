@@ -3,32 +3,82 @@
 }
 
 .app-footer {
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.25rem;
   padding: 1rem 2rem;
-  border-top: 1px solid rgba(128, 143, 133, 0.15);
+  border-top: 1px solid var(--color-border);
   margin-top: 2rem;
 }
 
+.app-footer .footer-copyright {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin-right: auto;
+}
+
+.app-footer .footer-privacy-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  opacity: 0.6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.app-footer .footer-privacy-link:hover {
+  opacity: 1;
+  color: var(--color-primary-strong);
+}
+
 .app-footer .version {
-  color: #696C6F;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   opacity: 0.6;
 }
 
 .app-header {
   text-align: left;
-  margin-bottom: 2rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 2px solid #595959;
+  margin-bottom: 1.5rem;
+  padding: 0 0 1.25rem;
+  border-bottom: 2px solid var(--color-border-strong);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.app-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 4.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+}
+
+.app-header-logo {
+  height: 4.4rem;
+  width: auto;
+  display: block;
+  margin: 0;
+}
+
+.app-header-tagline {
+  font-size: 1rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
 .app-header h1 {
   font-size: 2.35rem;
   margin-bottom: 0.3rem;
-  color: #DCE0D9;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .app-header p {
@@ -40,6 +90,11 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.user-info .theme-toggle-btn {
+  flex-shrink: 0;
 }
 
 .user-info span {
@@ -64,10 +119,10 @@
 }
 
 .membership-summary {
-  border: 1px solid rgba(128, 143, 133, 0.35);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
-  background: rgba(89, 89, 89, 0.14);
+  background: var(--color-surface-soft);
   margin-bottom: 1rem;
 }
 
@@ -84,8 +139,8 @@
 }
 
 .membership-summary-free {
-  border-color: rgba(128, 143, 133, 0.35);
-  background: rgba(89, 89, 89, 0.14);
+  border-color: var(--color-border);
+  background: var(--color-surface-soft);
 }
 
 .usage-meter {
@@ -93,13 +148,13 @@
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--color-bg-rgb), 0.3);
   overflow: hidden;
 }
 
 .usage-meter-bar {
   height: 100%;
-  background: linear-gradient(90deg, #808F85, #6B0F1A);
+  background: linear-gradient(90deg, var(--color-tag-start), var(--color-tag-end));
   transition: width 0.25s ease;
 }
 
@@ -112,7 +167,7 @@
   border: none;
   background: transparent;
   padding: 0;
-  color: #c9d8ce;
+  color: var(--color-link);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
@@ -124,7 +179,7 @@
 
 .usage-limit-warning {
   margin: 0.55rem 0 0;
-  color: #ff9797;
+  color: var(--color-danger);
   font-size: 0.86rem;
 }
 
@@ -155,9 +210,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid rgba(128, 143, 133, 0.4);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: rgba(89, 89, 89, 0.12);
+  background: var(--color-surface-soft);
   padding: 0.4rem 0.6rem;
   min-width: 180px;
   max-width: 320px;
@@ -179,7 +234,7 @@
 }
 
 .search-control input::placeholder {
-  color: rgba(220, 224, 217, 0.45);
+  color: var(--color-placeholder);
 }
 
 .search-control input:focus {
@@ -187,16 +242,16 @@
 }
 
 .search-control:focus-within {
-  border-color: #808F85;
-  box-shadow: 0 0 0 3px rgba(128, 143, 133, 0.2);
+  border-color: var(--color-primary-strong);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 
 .active-tag-filter {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: rgba(128, 143, 133, 0.15);
-  border: 1px solid rgba(128, 143, 133, 0.4);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
   padding: 0.3rem 0.55rem;
   font-size: 0.82rem;
@@ -222,26 +277,26 @@
 .sort-control label {
   font-size: 0.95rem;
   font-weight: 500;
-  color: #808F85;
+  color: var(--color-primary-strong);
 }
 
 .sort-control select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(128, 143, 133, 0.4);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: rgba(89, 89, 89, 0.12);
+  background: var(--color-surface-soft);
   color: inherit;
   font-size: 0.95rem;
 }
 
 .sort-control select:focus {
   outline: none;
-  border-color: #808F85;
-  box-shadow: 0 0 0 3px rgba(128, 143, 133, 0.2);
+  border-color: var(--color-primary-strong);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 
 .btn-primary {
-  background-color: #6B0F1A;
+  background-color: var(--color-primary);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -258,13 +313,13 @@
 }
 
 .btn-primary:hover {
-  background-color: #8B1A26;
+  background-color: var(--color-primary-hover);
 }
 
 .btn-secondary {
   background-color: transparent;
-  color: #808F85;
-  border: 1px solid #808F85;
+  color: var(--color-primary-strong);
+  border: 1px solid var(--color-primary-strong);
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   border-radius: 8px;
@@ -280,6 +335,8 @@
 
 .toolbar .btn-primary {
   flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
 }
 
 .btn-icon {
@@ -287,24 +344,24 @@
 }
 
 .btn-secondary:hover {
-  background-color: #595959;
+  background-color: var(--color-primary);
   color: white;
-  border-color: #595959;
+  border-color: var(--color-primary);
 }
 
 .add-bookmark-form {
-  background: rgba(89, 89, 89, 0.1);
-  border: 2px solid #595959;
+  background: var(--color-panel);
+  border: 2px solid var(--color-border-strong);
   border-radius: 16px;
   padding: 1.15rem 1.25rem;
   margin-bottom: 1.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .add-bookmark-form h2 {
   margin-bottom: 1rem;
   font-size: 1.2rem;
-  color: #DCE0D9;
+  color: var(--color-text);
 }
 
 .add-bookmark-form .form-group {
@@ -346,8 +403,8 @@
 
 .btn-field-action {
   background: transparent;
-  border: 1px solid #595959;
-  color: #808F85;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-primary-strong);
   border-radius: 6px;
   padding: 0.2rem 0.55rem;
   font-size: 0.78rem;
@@ -360,8 +417,8 @@
 }
 
 .btn-field-action:hover {
-  border-color: #808F85;
-  color: #DCE0D9;
+  border-color: var(--color-primary-strong);
+  color: var(--color-text);
 }
 
 .btn-field-action:disabled {
@@ -373,19 +430,19 @@
 .form-group textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #595959;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 1rem;
   font-family: inherit;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--color-surface-soft);
   color: inherit;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #808F85;
-  box-shadow: 0 0 0 3px rgba(128, 143, 133, 0.15);
+  border-color: var(--color-primary-strong);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 
 
@@ -415,9 +472,9 @@
 }
 
 .error-message {
-  background-color: rgba(255, 68, 68, 0.1);
-  border: 1px solid rgba(255, 68, 68, 0.3);
-  color: #ff4444;
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1.5rem;
@@ -429,7 +486,7 @@
 .error-close {
   background: none;
   border: none;
-  color: #ff4444;
+  color: var(--color-danger);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0;
@@ -455,22 +512,22 @@
 }
 
 .bookmark-card {
-  background: rgba(89, 89, 89, 0.08);
-  border: 1px solid rgba(89, 89, 89, 0.4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
   padding: 0.82rem 0.95rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   gap: 0.38rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .bookmark-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  border-color: #808F85;
-  background: rgba(89, 89, 89, 0.14);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(var(--color-accent-rgb), 0.42);
+  background: var(--color-surface-soft-hover);
 }
 
 .bookmark-header {
@@ -491,7 +548,7 @@
 
 .bookmark-card h3 {
   margin: 0;
-  color: #DCE0D9;
+  color: var(--color-text);
   flex: 1;
   word-break: break-word;
   font-size: 0.98rem;
@@ -504,9 +561,9 @@
 }
 
 .edit-btn {
-  background: rgba(128, 143, 133, 0.12);
-  border: 1px solid rgba(128, 143, 133, 0.4);
-  color: #808F85;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-primary-strong);
   border-radius: 6px;
   padding: 0.22rem 0.45rem;
   font-size: 0.76rem;
@@ -518,8 +575,8 @@
 }
 
 .edit-btn:hover {
-  background: rgba(128, 143, 133, 0.22);
-  color: #DCE0D9;
+  background: var(--color-surface-soft-hover);
+  color: var(--color-text);
 }
 
 .bookmark-card a {
@@ -581,7 +638,7 @@
 .delete-btn {
   background: none;
   border: none;
-  color: #ff4444;
+  color: var(--color-danger);
   cursor: pointer;
   padding: 0;
   width: 28px;
@@ -595,7 +652,7 @@
 }
 
 .delete-btn:hover {
-  background-color: rgba(255, 68, 68, 0.1);
+  background-color: var(--color-danger-soft);
 }
 
 .tags {
@@ -605,40 +662,24 @@
 }
 
 .tag {
-  background: linear-gradient(135deg, #6B0F1A 0%, #8B1A26 100%);
+  background: linear-gradient(135deg, var(--color-tag-start) 0%, var(--color-tag-end) 100%);
   color: white;
   padding: 0.3rem 0.72rem;
   border-radius: 16px;
   font-size: 0.8rem;
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .tag:hover {
   transform: scale(1.05);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
 .sidebar {
   position: sticky;
   top: 2rem;
-}
-
-@media (prefers-color-scheme: light) {
-  .form-group input,
-  .form-group textarea {
-    background-color: #f0f2ef;
-    border-color: #808F85;
-  }
-
-  .search-control input::placeholder {
-    color: rgba(49, 8, 31, 0.5);
-  }
-
-  .bookmark-card {
-    background: rgba(89, 89, 89, 0.06);
-  }
 }
 
 @media (max-width: 1024px) {
