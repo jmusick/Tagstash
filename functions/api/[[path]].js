@@ -47,15 +47,37 @@ const sendVerificationEmail = async (email, username, token, env) => {
   const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   const verifyUrl = `${appUrl}/verify-email?token=${token}`;
   const resend = new Resend(env.RESEND_API_KEY);
+  const fromAddress = env.EMAIL_FROM || 'Tagstash <onboarding@resend.dev>';
+  const replyTo = env.EMAIL_REPLY_TO || undefined;
+  const textBody = [
+    `Hi ${username},`,
+    '',
+    'Thanks for signing up for Tagstash. Please verify your email address by opening this link:',
+    verifyUrl,
+    '',
+    'This link expires in 24 hours.',
+    'If you did not create a Tagstash account, you can ignore this email.',
+  ].join('\n');
+  const htmlBody = `
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
+  <p>Hi ${username},</p>
+  <p>Thanks for signing up for Tagstash. Please verify your email address by clicking the button below:</p>
+  <p>
+    <a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">Verify email address</a>
+  </p>
+  <p>If the button does not work, copy and paste this link into your browser:</p>
+  <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+  <p>This link expires in 24 hours.</p>
+  <p>If you did not create a Tagstash account, you can safely ignore this email.</p>
+</div>`;
 
   const { error } = await resend.emails.send({
-    from: env.EMAIL_FROM || 'Tagstash <noreply@tagstash.app>',
+    from: fromAddress,
     to: email,
+    replyTo,
     subject: 'Verify your Tagstash email address',
-    html: `<p>Hi ${username},</p>
-<p>Thanks for signing up for Tagstash! Please verify your email address by clicking the link below:</p>
-<p><a href="${verifyUrl}">${verifyUrl}</a></p>
-<p>This link expires in 24 hours. If you did not create a Tagstash account, you can safely ignore this email.</p>`,
+    text: textBody,
+    html: htmlBody,
   });
 
   if (error) {
