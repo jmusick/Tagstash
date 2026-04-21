@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
+import { Resend } from 'resend';
 
 const MEMBERSHIP_TIERS = {
   FREE: 'free',
@@ -39,29 +40,26 @@ const generateVerificationToken = () => {
 };
 
 const sendVerificationEmail = async (email, username, token, env) => {
+  if (!env.RESEND_API_KEY) {
+    throw new Error('Missing RESEND_API_KEY');
+  }
+
   const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   const verifyUrl = `${appUrl}/verify-email?token=${token}`;
+  const resend = new Resend(env.RESEND_API_KEY);
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM || 'Tagstash <noreply@tagstash.app>',
-      to: email,
-      subject: 'Verify your Tagstash email address',
-      html: `<p>Hi ${username},</p>
+  const { error } = await resend.emails.send({
+    from: env.EMAIL_FROM || 'Tagstash <noreply@tagstash.app>',
+    to: email,
+    subject: 'Verify your Tagstash email address',
+    html: `<p>Hi ${username},</p>
 <p>Thanks for signing up for Tagstash! Please verify your email address by clicking the link below:</p>
 <p><a href="${verifyUrl}">${verifyUrl}</a></p>
 <p>This link expires in 24 hours. If you did not create a Tagstash account, you can safely ignore this email.</p>`,
-    }),
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || 'Failed to send verification email');
+  if (error) {
+    throw new Error(error.message || 'Failed to send verification email');
   }
 };
 
