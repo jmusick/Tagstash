@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../api/api';
 import './Auth.css';
 
 function Auth() {
@@ -11,6 +12,8 @@ function Auth() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('');
 
   const { login, register } = useAuth();
 
@@ -49,6 +52,8 @@ function Auth() {
 
     if (!result.success) {
       setError(result.error);
+    } else if (result.pendingVerification) {
+      setPendingEmail(formData.email);
     }
   };
 
@@ -57,6 +62,46 @@ function Auth() {
     setError('');
     setFormData({ username: '', email: '', password: '' });
   };
+
+  const handleResend = async () => {
+    setResendStatus('');
+    try {
+      await authAPI.resendVerification(pendingEmail);
+      setResendStatus('A new verification link has been sent.');
+    } catch (err) {
+      setResendStatus(err.response?.data?.error || 'Could not resend. Please try again.');
+    }
+  };
+
+  if (pendingEmail) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h1 className="auth-title">
+            <picture>
+              <source srcSet="/tagstash-logo-light.svg" media="(prefers-color-scheme: light)" />
+              <img src="/tagstash-logo-dark.svg" alt="Tagstash" className="auth-title-logo" />
+            </picture>
+          </h1>
+          <p className="auth-subtitle">Check your email</p>
+          <p className="auth-description">
+            We sent a verification link to <strong>{pendingEmail}</strong>. Click the link in the email to
+            activate your account.
+          </p>
+          {resendStatus && <p className="auth-description">{resendStatus}</p>}
+          <button className="auth-button auth-button--secondary" onClick={handleResend}>
+            Resend verification email
+          </button>
+          <div className="auth-toggle">
+            Wrong email?{' '}
+            <button onClick={() => { setPendingEmail(''); setIsLogin(false); }} className="auth-toggle-button">
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container">

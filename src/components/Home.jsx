@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../api/api';
 import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun } from 'lucide-react';
 import { version } from '../../package.json';
 import './Home.css';
@@ -13,6 +14,8 @@ function Home({ logoSrc, theme, onToggleTheme }) {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState('');
 
   const { login, register } = useAuth();
 
@@ -51,6 +54,8 @@ function Home({ logoSrc, theme, onToggleTheme }) {
 
     if (!result.success) {
       setError(result.error);
+    } else if (result.pendingVerification) {
+      setPendingEmail(formData.email);
     }
   };
 
@@ -58,6 +63,16 @@ function Home({ logoSrc, theme, onToggleTheme }) {
     setIsLogin(!isLogin);
     setError('');
     setFormData({ username: '', email: '', password: '' });
+  };
+
+  const handleResend = async () => {
+    setResendStatus('');
+    try {
+      await authAPI.resendVerification(pendingEmail);
+      setResendStatus('A new verification link has been sent.');
+    } catch (err) {
+      setResendStatus(err.response?.data?.error || 'Could not resend. Please try again.');
+    }
   };
 
   const features = [
@@ -95,6 +110,43 @@ function Home({ logoSrc, theme, onToggleTheme }) {
   ];
 
   const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth'];
+
+  if (pendingEmail) {
+    return (
+      <div className="home-container">
+        <div className="home-topbar">
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="theme-toggle-btn home-theme-toggle"
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+        <section className="hero-section">
+          <div className="auth-card">
+            <h2 className="auth-card-title">Check your email</h2>
+            <p className="auth-description">
+              We sent a verification link to <strong>{pendingEmail}</strong>. Click the link to activate
+              your account.
+            </p>
+            {resendStatus && <p className="auth-description">{resendStatus}</p>}
+            <button className="auth-button auth-button--secondary" onClick={handleResend}>
+              Resend verification email
+            </button>
+            <div className="auth-toggle">
+              Wrong email?{' '}
+              <button onClick={() => { setPendingEmail(''); setIsLogin(false); }} className="auth-toggle-button">
+                Go back
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="home-container">

@@ -32,6 +32,12 @@ export const authAPI = {
   getCurrentUser: () =>
     api.get('/auth/me'),
 
+  verifyEmail: (token) =>
+    api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`),
+
+  resendVerification: (email) =>
+    api.post('/auth/resend-verification', { email }),
+
   getApiKeys: () =>
     api.get('/auth/api-keys'),
 

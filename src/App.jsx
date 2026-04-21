@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext'
 import Home from './components/Home'
 import Settings from './components/Settings'
 import PolicyPage from './components/PolicyPage'
+import VerifyEmail from './components/VerifyEmail'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI } from './api/api'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun } from 'lucide-react'
@@ -30,7 +31,9 @@ function App() {
   const [theme, setTheme] = useState(getInitialTheme)
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [activePage, setActivePage] = useState('bookmarks')
+  const [activePage, setActivePage] = useState(() =>
+    window.location.pathname === '/verify-email' ? 'verify-email' : 'bookmarks'
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -530,6 +533,10 @@ function App() {
         onBack={() => setActivePage(user ? 'bookmarks' : 'home')}
       />
     )
+  }
+
+  if (activePage === 'verify-email') {
+    return <VerifyEmail logoSrc={logoSrc} />
   }
 
   if (!user) {

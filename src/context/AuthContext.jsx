@@ -42,6 +42,9 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await authAPI.register(username, email, password);
+      if (response.data.pendingVerification) {
+        return { success: true, pendingVerification: true };
+      }
       localStorage.setItem('token', response.data.token);
       setUser(response.data.user);
       return { success: true };

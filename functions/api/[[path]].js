@@ -28,6 +28,43 @@ const corsHeaders = {
 
 const encoder = new TextEncoder();
 
+// --- Email verification helpers ---
+
+const generateVerificationToken = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const sendVerificationEmail = async (email, username, token, env) => {
+  const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const verifyUrl = `${appUrl}/verify-email?token=${token}`;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: env.EMAIL_FROM || 'Tagstash <noreply@tagstash.app>',
+      to: email,
+      subject: 'Verify your Tagstash email address',
+      html: `<p>Hi ${username},</p>
+<p>Thanks for signing up for Tagstash! Please verify your email address by clicking the link below:</p>
+<p><a href="${verifyUrl}">${verifyUrl}</a></p>
+<p>This link expires in 24 hours. If you did not create a Tagstash account, you can safely ignore this email.</p>`,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || 'Failed to send verification email');
+  }
+};
+
 const jsonResponse = (payload, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -498,23 +535,33 @@ async function handleAuth(request, env, segments) {
 
     const insert = await db
       .prepare(
-        'INSERT INTO users (username, email, password_hash, membership_tier, role) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO users (username, email, password_hash, membership_tier, role, email_verified) VALUES (?, ?, ?, ?, ?, 0)'
       )
       .bind(trimmedUsername, normalizedEmail, passwordHash, MEMBERSHIP_TIERS.FREE, role)
       .run();
 
-    const user = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
-      .bind(insert.meta.last_row_id)
-      .first();
+    const userId = insert.meta.last_row_id;
 
-    const token = await signUserToken(user, env);
+    // Generate and store verification token (expires in 24 hours)
+    const verificationToken = generateVerificationToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await db
+      .prepare('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
+      .bind(userId, verificationToken, expiresAt)
+      .run();
+
+    try {
+      await sendVerificationEmail(normalizedEmail, trimmedUsername, verificationToken, env);
+    } catch (emailErr) {
+      // Roll back user creation if email fails so they can try again
+      await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+      return jsonResponse({ error: 'Failed to send verification email. Please try again.' }, 500);
+    }
 
     return jsonResponse(
       {
-        message: 'User registered successfully',
-        token,
-        user,
+        message: 'Registration successful. Please check your email to verify your account.',
+        pendingVerification: true,
       },
       201
     );
@@ -537,6 +584,10 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Invalid email or password' }, 401);
     }
 
+    if (!user.email_verified) {
+      return jsonResponse({ error: 'Please verify your email address before logging in.' }, 403);
+    }
+
     await ensureUserRoleMatchesConfig(db, user, env);
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
@@ -557,6 +608,105 @@ async function handleAuth(request, env, segments) {
         role: user.role,
       },
     });
+  }
+
+  if (request.method === 'GET' && segments[1] === 'verify-email') {
+    const token = new URL(request.url).searchParams.get('token');
+    if (!token) {
+      return jsonResponse({ error: 'Verification token is required' }, 400);
+    }
+
+    const record = await db
+      .prepare(
+        `SELECT evt.id, evt.user_id, evt.expires_at, evt.used_at
+         FROM email_verification_tokens evt
+         WHERE evt.token = ?`
+      )
+      .bind(token)
+      .first();
+
+    if (!record) {
+      return jsonResponse({ error: 'Invalid or expired verification link.' }, 400);
+    }
+
+    if (record.used_at) {
+      return jsonResponse({ error: 'This verification link has already been used.' }, 400);
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      return jsonResponse({ error: 'This verification link has expired. Please request a new one.' }, 400);
+    }
+
+    await db
+      .prepare('UPDATE users SET email_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(record.user_id)
+      .run();
+
+    await db
+      .prepare('UPDATE email_verification_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(record.id)
+      .run();
+
+    const verifiedUser = await db
+      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+      .bind(record.user_id)
+      .first();
+
+    const authToken = await signUserToken(verifiedUser, env);
+
+    return jsonResponse({
+      message: 'Email verified successfully.',
+      token: authToken,
+      user: verifiedUser,
+    });
+  }
+
+  if (request.method === 'POST' && segments[1] === 'resend-verification') {
+    const { email } = await parseBody(request);
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
+      return jsonResponse({ error: 'Email is required' }, 400);
+    }
+
+    const unverifiedUser = await db
+      .prepare('SELECT id, username, email_verified FROM users WHERE LOWER(email) = LOWER(?)')
+      .bind(normalizedEmail)
+      .first();
+
+    if (!unverifiedUser || unverifiedUser.email_verified) {
+      return jsonResponse({ message: 'If that address is awaiting verification, a new link has been sent.' });
+    }
+
+    const recent = await db
+      .prepare(
+        `SELECT id FROM email_verification_tokens
+         WHERE user_id = ? AND used_at IS NULL
+           AND created_at > datetime('now', '-60 seconds')
+         LIMIT 1`
+      )
+      .bind(unverifiedUser.id)
+      .first();
+
+    if (recent) {
+      return jsonResponse({ error: 'Please wait a moment before requesting another link.' }, 429);
+    }
+
+    await db
+      .prepare('DELETE FROM email_verification_tokens WHERE user_id = ? AND used_at IS NULL')
+      .bind(unverifiedUser.id)
+      .run();
+
+    const verificationToken = generateVerificationToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await db
+      .prepare('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
+      .bind(unverifiedUser.id, verificationToken, expiresAt)
+      .run();
+
+    await sendVerificationEmail(normalizedEmail, unverifiedUser.username, verificationToken, env);
+
+    return jsonResponse({ message: 'If that address is awaiting verification, a new link has been sent.' });
   }
 
   if (request.method === 'GET' && segments[1] === 'me') {
