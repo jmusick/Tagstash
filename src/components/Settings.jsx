@@ -381,6 +381,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           >
             Password
           </button>
+          {/* API Keys tab hidden
           <button
             className={`tab-btn ${activeTab === 'apiKeys' ? 'active' : ''}`}
             onClick={() => {
@@ -392,6 +393,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           >
             API Keys
           </button>
+          */}
           <button
             className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
             onClick={() => {
@@ -563,7 +565,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           </form>
         )}
 
-        {activeTab === 'apiKeys' && (
+        {activeTab === 'apiKeys' && false && (
           <div className="api-keys-panel">
             <form onSubmit={handleCreateApiKey} className="settings-form api-key-create-form">
               <div className="form-field">

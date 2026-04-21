@@ -105,6 +105,57 @@ function parseRaindropCSV(text) {
   return bookmarks;
 }
 
+// Parse a Firefox/Netscape HTML bookmark export into bookmark objects.
+// Walks the folder hierarchy and uses folder names as tags.
+function parseFirefoxHTML(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const SKIP_FOLDERS = new Set([
+    'bookmarks menu', 'bookmarks toolbar', 'other bookmarks', 'bookmarks', 'menu',
+  ]);
+
+  const bookmarks = [];
+  const anchors = doc.querySelectorAll('a[href]');
+
+  anchors.forEach((a) => {
+    const url = a.getAttribute('href');
+    const title = a.textContent.trim();
+    if (!url || !title) return;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+
+    // Walk up the DOM collecting folder names from H3s that precede sibling DLs.
+    const folderNames = [];
+    let el = a.parentElement;
+    while (el && el.tagName !== 'BODY') {
+      if (el.tagName === 'DL') {
+        let prev = el.previousElementSibling;
+        while (prev) {
+          if (prev.tagName === 'DT') {
+            const h3 = prev.querySelector('h3');
+            if (h3) {
+              folderNames.push(h3.textContent.trim());
+              break;
+            }
+          }
+          prev = prev.previousElementSibling;
+        }
+      }
+      el = el.parentElement;
+    }
+
+    const tags = folderNames
+      .reverse()
+      .filter((f) => f && !SKIP_FOLDERS.has(f.toLowerCase()))
+      .map((f) => f.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
+      .filter((t) => t.length > 0);
+
+    bookmarks.push({ title, url, description: null, tags: [...new Set(tags)] });
+  });
+
+  return bookmarks;
+}
+
 function Import({ onClose, onImportComplete, inline = false }) {
   const [stage, setStage] = useState('idle'); // idle | preview | importing | done
   const [parsed, setParsed] = useState([]);
@@ -116,35 +167,58 @@ function Import({ onClose, onImportComplete, inline = false }) {
 
   const handleFile = (file) => {
     if (!file) return;
-    if (source !== 'raindrop') {
-      setError('This import source is not available yet.');
+
+    if (source === 'firefox') {
+      if (!file.name.toLowerCase().endsWith('.html') && !file.name.toLowerCase().endsWith('.htm')) {
+        setError('Please select an HTML file exported from Firefox.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const html = e.target.result;
+        if (!html.includes('NETSCAPE-Bookmark-file')) {
+          setError('This does not look like a Firefox bookmark export. Use Bookmarks → Manage Bookmarks → Import and Backup → Export Bookmarks to HTML.');
+          return;
+        }
+        const bookmarks = parseFirefoxHTML(html);
+        if (bookmarks.length === 0) {
+          setError('No valid bookmarks found in this file.');
+          return;
+        }
+        setError('');
+        setParsed(bookmarks);
+        setStage('preview');
+      };
+      reader.readAsText(file);
       return;
     }
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please select a CSV file.');
+    if (source === 'raindrop') {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setError('Please select a CSV file.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const bookmarks = parseRaindropCSV(text);
+        if (bookmarks === null) {
+          setError('This file does not look like a Raindrop.io CSV export. Expected columns: title, url, tags…');
+          return;
+        }
+        if (bookmarks.length === 0) {
+          setError('No valid bookmarks found in this file.');
+          return;
+        }
+        setError('');
+        setParsed(bookmarks);
+        setStage('preview');
+      };
+      reader.readAsText(file);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const bookmarks = parseRaindropCSV(text);
-
-      if (bookmarks === null) {
-        setError('This file does not look like a Raindrop.io CSV export. Expected columns: title, url, tags…');
-        return;
-      }
-      if (bookmarks.length === 0) {
-        setError('No valid bookmarks found in this file.');
-        return;
-      }
-
-      setError('');
-      setParsed(bookmarks);
-      setStage('preview');
-    };
-    reader.readAsText(file);
+    setError('This import source is not available yet.');
   };
 
   const handleDrop = (e) => {
@@ -207,13 +281,14 @@ function Import({ onClose, onImportComplete, inline = false }) {
         <label htmlFor="import-source">Source</label>
         <select id="import-source" value={source} onChange={handleSourceChange}>
           <option value="raindrop">Raindrop.io (CSV)</option>
+          <option value="firefox">Firefox Bookmarks (HTML)</option>
           <option value="pinboard">Pinboard.in (coming soon)</option>
         </select>
       </div>
 
       {source === 'pinboard' && (
         <div className="import-upcoming">
-          Pinboard.in import support is planned. For now, select Raindrop.io and upload a CSV export.
+          Pinboard.in import support is planned. For now, select Raindrop.io or Firefox Bookmarks.
         </div>
       )}
 
@@ -226,10 +301,12 @@ function Import({ onClose, onImportComplete, inline = false }) {
         </div>
       )}
 
-      {source === 'raindrop' && stage === 'idle' && (
+      {(source === 'raindrop' || source === 'firefox') && stage === 'idle' && (
         <>
           <p className="import-hint">
-            Export your bookmarks from Raindrop.io as a CSV file, then upload it here.
+            {source === 'firefox'
+              ? 'Export your bookmarks from Firefox: Bookmarks → Manage Bookmarks → Import and Backup → Export Bookmarks to HTML. Then upload the file here.'
+              : 'Export your bookmarks from Raindrop.io as a CSV file, then upload it here.'}
           </p>
           <div
             className={`drop-zone${dragging ? ' drop-zone--active' : ''}`}
@@ -240,23 +317,23 @@ function Import({ onClose, onImportComplete, inline = false }) {
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-            aria-label="Upload CSV file"
+            aria-label={source === 'firefox' ? 'Upload HTML bookmark file' : 'Upload CSV file'}
           >
             <FileText size={36} className="drop-zone-icon" />
-            <p>Drop your Raindrop.io CSV here</p>
+            <p>{source === 'firefox' ? 'Drop your Firefox bookmarks HTML here' : 'Drop your Raindrop.io CSV here'}</p>
             <span>or click to browse</span>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept={source === 'firefox' ? '.html,.htm' : '.csv'}
             className="hidden-file-input"
             onChange={handleFileInput}
           />
         </>
       )}
 
-      {source === 'raindrop' && stage === 'preview' && (
+      {stage === 'preview' && (
         <>
           <p className="import-count">
             <strong>{parsed.length}</strong> bookmark{parsed.length !== 1 ? 's' : ''} ready to import
@@ -296,7 +373,9 @@ function Import({ onClose, onImportComplete, inline = false }) {
           </div>
           <p className="import-note">
             Bookmarks with duplicate URLs will be skipped automatically.
-            Multi-word tags (e.g. &quot;health insurance&quot;) are converted to hyphenated form.
+            {source === 'firefox'
+              ? ' Folder names are converted to tags.'
+              : ' Multi-word tags (e.g. “health insurance”) are converted to hyphenated form.'}
           </p>
           <div className="import-actions">
             <button className="btn-primary" onClick={handleImport}>
@@ -309,13 +388,13 @@ function Import({ onClose, onImportComplete, inline = false }) {
         </>
       )}
 
-      {source === 'raindrop' && stage === 'importing' && (
+      {stage === 'importing' && (
         <div className="import-progress">
           <p>Importing bookmarks...</p>
         </div>
       )}
 
-      {source === 'raindrop' && stage === 'done' && result && (
+      {stage === 'done' && result && (
         <div className="import-done">
           <CheckCircle size={40} className="import-done-icon" />
           <h3>Import complete</h3>

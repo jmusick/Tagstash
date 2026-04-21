@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { bookmarksAPI } from '../api/api';
-import { Tag } from 'lucide-react';
+import { Tag, Search, Plus } from 'lucide-react';
 import './TagCloud.css';
 
-function TagCloud({ selectedTag = '', onTagSelect, refreshKey = 0 }) {
+function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
 
   const fetchTags = useCallback(async () => {
     try {
@@ -30,6 +31,11 @@ function TagCloud({ selectedTag = '', onTagSelect, refreshKey = 0 }) {
     return 'small';
   };
 
+  const query = tagSearch.trim().toLowerCase();
+  const visibleTags = !query
+    ? tags
+    : tags.filter((tag) => tag.name?.toLowerCase().includes(query));
+
   return (
     <div className="tag-cloud">
       <div className="tag-cloud-header">
@@ -40,26 +46,68 @@ function TagCloud({ selectedTag = '', onTagSelect, refreshKey = 0 }) {
         <span className="tag-count">{tags.length}</span>
       </div>
 
+      <div className="tag-cloud-search">
+        <Search size={14} className="tag-cloud-search-icon" />
+        <input
+          type="text"
+          value={tagSearch}
+          onChange={(e) => setTagSearch(e.target.value)}
+          placeholder="Filter tags"
+          aria-label="Filter tags"
+        />
+      </div>
+
       {loading ? (
         <div className="tag-cloud-loading">Loading tags...</div>
       ) : tags.length === 0 ? (
         <div className="tag-cloud-empty">
           <p>No tags yet. Add bookmarks to create tags!</p>
         </div>
+      ) : visibleTags.length === 0 ? (
+        <div className="tag-cloud-empty">
+          <p>No tags match that filter.</p>
+        </div>
       ) : (
         <div className="tag-cloud-items">
-          {tags.map((tag, index) => (
-            <button
-              type="button"
-              key={tag.id}
-              className={`tag-cloud-item tag-size-${getTagSize(index, tags.length)} ${selectedTag?.toLowerCase() === tag.name?.toLowerCase() ? 'active' : ''}`}
-              title={`${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
-              onClick={() => onTagSelect?.(tag.name)}
-            >
-              <span className="tag-name">{tag.name}</span>
-              <span className="tag-badge">{tag.count}</span>
-            </button>
-          ))}
+          {visibleTags.map((tag, index) => {
+            const normalizedTag = tag.name?.toLowerCase();
+            const isSelected = selectedTags.includes(normalizedTag);
+
+            return (
+              <div
+                key={tag.id}
+                className={`tag-cloud-item tag-size-${getTagSize(index, visibleTags.length)} ${isSelected ? 'active' : ''}`}
+                title={`${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onTagToggle?.(tag.name)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onTagToggle?.(tag.name);
+                  }
+                }}
+              >
+                <span className="tag-chip-prefix">
+                  <button
+                    type="button"
+                    className={`tag-cloud-chip-plus ${isSelected ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTagAdd?.(tag.name);
+                    }}
+                    title={isSelected ? 'Already in query' : `Add ${tag.name} to query`}
+                    aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
+                    disabled={isSelected}
+                  >
+                    <Plus size={11} />
+                  </button>
+                </span>
+                <span className="tag-name">{tag.name}</span>
+                <span className="tag-badge">{tag.count}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

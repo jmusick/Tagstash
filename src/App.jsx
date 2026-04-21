@@ -34,7 +34,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedTag, setSelectedTag] = useState('')
+  const [selectedTags, setSelectedTags] = useState([])
   const [sortBy, setSortBy] = useState('date')
   const [sortDirection, setSortDirection] = useState('desc')
   const [fetchingDescription, setFetchingDescription] = useState(false)
@@ -55,6 +55,8 @@ function App() {
     tags: '',
     description: ''
   })
+  const [tagDraft, setTagDraft] = useState('')
+  const [editTagDraft, setEditTagDraft] = useState('')
   const [tagsRefreshKey, setTagsRefreshKey] = useState(0)
 
   const membershipTier = user?.membership_tier || 'free'
@@ -78,6 +80,16 @@ function App() {
 
   const toggleTheme = () => {
     setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
+  }
+
+  const handleLogoClick = () => {
+    setActivePage('bookmarks')
+    setSearchTerm('')
+    setSelectedTags([])
+    setSortBy('date')
+    setSortDirection('desc')
+    setShowAddForm(false)
+    setEditingBookmarkId(null)
   }
 
   const fetchBookmarks = async () => {
@@ -141,17 +153,113 @@ function App() {
 
       const matchesSearch = !query || searchable.includes(query)
 
-      const matchesTag = !selectedTag || (
-        Array.isArray(bookmark.tags) &&
-        bookmark.tags.some((tag) => tag.name?.toLowerCase() === selectedTag.toLowerCase())
-      )
+      const bookmarkTagNames = Array.isArray(bookmark.tags)
+        ? bookmark.tags.map((tag) => tag.name?.toLowerCase()).filter(Boolean)
+        : []
+
+      const matchesTag = selectedTags.length === 0 ||
+        selectedTags.every((selectedTag) => bookmarkTagNames.includes(selectedTag.toLowerCase()))
 
       return matchesSearch && matchesTag
     })
-  }, [sortedBookmarks, searchTerm, selectedTag])
+  }, [sortedBookmarks, searchTerm, selectedTags])
 
-  const handleTagSelect = (tagName) => {
-    setSelectedTag((prev) => (prev.toLowerCase() === tagName.toLowerCase() ? '' : tagName))
+  const handleTagToggle = (tagName) => {
+    const normalized = tagName?.trim().toLowerCase()
+    if (!normalized) return
+
+    setSelectedTags((prev) => (
+      prev.includes(normalized)
+        ? prev.filter((tag) => tag !== normalized)
+        : [...prev, normalized]
+    ))
+  }
+
+  const handleTagAdd = (tagName) => {
+    const normalized = tagName?.trim().toLowerCase()
+    if (!normalized) return
+
+    setSelectedTags((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+  }
+
+  const handleTagRemove = (tagName) => {
+    const normalized = tagName?.trim().toLowerCase()
+    if (!normalized) return
+    setSelectedTags((prev) => prev.filter((tag) => tag !== normalized))
+  }
+
+  const parseTags = (raw) => (
+    (raw || '')
+      .split(',')
+      .map((tag) => tag.trim().toLowerCase())
+      .filter((tag) => tag.length > 0)
+  )
+
+  const joinTags = (tags) => tags.join(', ')
+
+  const buildTagList = (rawTags, rawDraft) => {
+    const allTags = [...parseTags(rawTags), ...parseTags(rawDraft)]
+    const invalidTag = allTags.find((tag) => tag.includes(' '))
+    if (invalidTag) {
+      return { tags: [], invalidTag }
+    }
+    return { tags: Array.from(new Set(allTags)), invalidTag: null }
+  }
+
+  const lockAddDraftTags = () => {
+    const { tags, invalidTag } = buildTagList(formData.tags, tagDraft)
+    if (invalidTag) {
+      setError(`Tag "${invalidTag}" must be a single word with no spaces`)
+      return false
+    }
+    setFormData((prev) => ({ ...prev, tags: joinTags(tags) }))
+    setTagDraft('')
+    return true
+  }
+
+  const lockEditDraftTags = () => {
+    const { tags, invalidTag } = buildTagList(editFormData.tags, editTagDraft)
+    if (invalidTag) {
+      setError(`Tag "${invalidTag}" must be a single word with no spaces`)
+      return false
+    }
+    setEditFormData((prev) => ({ ...prev, tags: joinTags(tags) }))
+    setEditTagDraft('')
+    return true
+  }
+
+  const removeAddTag = (tagToRemove) => {
+    const nextTags = parseTags(formData.tags).filter((tag) => tag !== tagToRemove)
+    setFormData((prev) => ({ ...prev, tags: joinTags(nextTags) }))
+  }
+
+  const removeEditTag = (tagToRemove) => {
+    const nextTags = parseTags(editFormData.tags).filter((tag) => tag !== tagToRemove)
+    setEditFormData((prev) => ({ ...prev, tags: joinTags(nextTags) }))
+  }
+
+  const handleAddTagDraftKeyDown = (e) => {
+    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === 'Spacebar'
+    if (!isDelimiter || !tagDraft.trim()) return
+
+    if (e.key !== 'Tab') {
+      e.preventDefault()
+    }
+
+    setError('')
+    lockAddDraftTags()
+  }
+
+  const handleEditTagDraftKeyDown = (e) => {
+    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === 'Spacebar'
+    if (!isDelimiter || !editTagDraft.trim()) return
+
+    if (e.key !== 'Tab') {
+      e.preventDefault()
+    }
+
+    setError('')
+    lockEditDraftTags()
   }
 
   const handleInputChange = (e) => {
@@ -237,13 +345,7 @@ function App() {
     }
 
     try {
-      const tags = formData.tags
-        .split(',')
-        .map(tag => tag.trim().toLowerCase())
-        .filter(tag => tag.length > 0)
-
-      // Validate tags are single words (no spaces)
-      const invalidTag = tags.find(tag => tag.includes(' '))
+      const { tags, invalidTag } = buildTagList(formData.tags, tagDraft)
       if (invalidTag) {
         setError(`Tag "${invalidTag}" must be a single word with no spaces`)
         return
@@ -260,6 +362,7 @@ function App() {
       
       // Reset form and refresh bookmarks
       setFormData({ title: '', url: '', tags: '', description: '' })
+      setTagDraft('')
       setLastFetchedDescriptionUrl('')
       setShowAddForm(false)
       fetchBookmarks()
@@ -297,11 +400,13 @@ function App() {
       description: bookmark.description || '',
       tags: tagsString,
     })
+    setEditTagDraft('')
   }
 
   const handleCancelEdit = () => {
     setEditingBookmarkId(null)
     setEditFormData({ title: '', url: '', description: '', tags: '' })
+    setEditTagDraft('')
   }
 
   const handleEditInputChange = (e) => {
@@ -334,13 +439,7 @@ function App() {
     }
 
     try {
-      const tags = editFormData.tags
-        .split(',')
-        .map(tag => tag.trim().toLowerCase())
-        .filter(tag => tag.length > 0)
-
-      // Validate tags are single words (no spaces)
-      const invalidTag = tags.find(tag => tag.includes(' '))
+      const { tags, invalidTag } = buildTagList(editFormData.tags, editTagDraft)
       if (invalidTag) {
         setError(`Tag "${invalidTag}" must be a single word with no spaces`)
         return
@@ -442,7 +541,9 @@ function App() {
       <div className="app">
         <header className="app-header">
           <div className="app-header-brand">
-            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+            <button type="button" className="app-header-logo-btn" onClick={handleLogoClick} title="Back to bookmarks">
+              <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+            </button>
             <p className="app-header-tagline">Your tag-based bookmarking companion</p>
           </div>
           <div className="user-info">
@@ -488,7 +589,9 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-brand">
+          <button type="button" className="app-header-logo-btn" onClick={handleLogoClick} title="Back to bookmarks">
             <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+          </button>
           <p className="app-header-tagline">Your tag-based bookmarking companion</p>
         </div>
         <div className="user-info">
@@ -618,15 +721,30 @@ function App() {
               </div>
               <div className="form-group">
                 <label htmlFor="tags">Tags</label>
-                <input 
-                  type="text" 
-                  id="tags"
-                  name="tags"
-                  value={formData.tags}
-                  onChange={handleInputChange}
-                  placeholder="javascript, react, tutorial"
-                />
-                <small>Separate tags with commas</small>
+                <div className="tag-input-shell">
+                  {parseTags(formData.tags).map((tag) => (
+                    <span key={tag} className="tag-input-pill">
+                      <span>{tag}</span>
+                      <button
+                        type="button"
+                        className="tag-pill-remove"
+                        aria-label={`Remove tag ${tag}`}
+                        onClick={() => removeAddTag(tag)}
+                      >
+                        x
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    id="tags"
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    onKeyDown={handleAddTagDraftKeyDown}
+                    placeholder="Type tag, press comma"
+                  />
+                </div>
+                <small>Press Comma, Space, Enter, or Tab to lock in a tag</small>
               </div>
               <div className="form-group">
                 <div className="field-header">
@@ -657,6 +775,7 @@ function App() {
                   onClick={() => {
                     setShowAddForm(false)
                     setFormData({ title: '', url: '', tags: '', description: '' })
+                    setTagDraft('')
                   }}
                 >
                   Cancel
@@ -692,7 +811,7 @@ function App() {
           ) : filteredBookmarks.length === 0 ? (
             <div className="empty-state">
               <p>
-                {searchTerm.trim() || selectedTag
+                {searchTerm.trim() || selectedTags.length > 0
                   ? 'No bookmarks match your search.'
                   : 'No bookmarks yet. Add your first one to get started!'}
               </p>
@@ -806,15 +925,30 @@ function App() {
                       </div>
                       <div className="form-group">
                         <label htmlFor={`edit-tags-${bookmark.id}`}>Tags</label>
-                        <input
-                          id={`edit-tags-${bookmark.id}`}
-                          type="text"
-                          name="tags"
-                          value={editFormData.tags}
-                          onChange={handleEditInputChange}
-                          placeholder="javascript, react, tutorial"
-                        />
-                        <small>Separate tags with commas</small>
+                        <div className="tag-input-shell">
+                          {parseTags(editFormData.tags).map((tag) => (
+                            <span key={tag} className="tag-input-pill">
+                              <span>{tag}</span>
+                              <button
+                                type="button"
+                                className="tag-pill-remove"
+                                aria-label={`Remove tag ${tag}`}
+                                onClick={() => removeEditTag(tag)}
+                              >
+                                x
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            id={`edit-tags-${bookmark.id}`}
+                            type="text"
+                            value={editTagDraft}
+                            onChange={(e) => setEditTagDraft(e.target.value)}
+                            onKeyDown={handleEditTagDraftKeyDown}
+                            placeholder="Type tag, press comma"
+                          />
+                        </div>
+                        <small>Press Comma, Space, Enter, or Tab to lock in a tag</small>
                       </div>
                       <div className="bookmark-edit-actions">
                         <button
@@ -862,15 +996,32 @@ function App() {
         </div>
 
         <aside className="sidebar">
-          {selectedTag && (
+          {selectedTags.length > 0 && (
             <div className="active-tag-filter sidebar-tag-filter">
-              <span>Tag: {selectedTag}</span>
-              <button type="button" onClick={() => setSelectedTag('')} aria-label="Clear tag filter">
-                <X size={14} />
-              </button>
+              <div className="active-tag-filter-head">
+                <span>Tag Query</span>
+                <button type="button" onClick={() => setSelectedTags([])} aria-label="Clear all tag filters">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="active-tag-filter-list">
+                {selectedTags.map((tag) => (
+                  <span key={tag} className="active-tag-filter-item">
+                    <span>{tag}</span>
+                    <button type="button" onClick={() => handleTagRemove(tag)} aria-label={`Remove ${tag} from tag query`}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
-          <TagCloud selectedTag={selectedTag} onTagSelect={handleTagSelect} refreshKey={tagsRefreshKey} />
+          <TagCloud
+            selectedTags={selectedTags}
+            onTagToggle={handleTagToggle}
+            onTagAdd={handleTagAdd}
+            refreshKey={tagsRefreshKey}
+          />
         </aside>
       </main>
       <footer className="app-footer">

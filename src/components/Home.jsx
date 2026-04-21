@@ -89,7 +89,8 @@ function Home({ logoSrc, theme, onToggleTheme }) {
     {
       icon: Share2,
       title: 'Api Keys',
-      description: 'Integrate with your own tools and services via API.'
+      description: 'Integrate with your own tools and services via API.',
+      hidden: true,
     }
   ];
 
@@ -200,7 +201,7 @@ function Home({ logoSrc, theme, onToggleTheme }) {
         </div>
 
         <div className="features-grid">
-          {features.map((feature, index) => {
+          {features.filter(f => !f.hidden).map((feature, index) => {
             const IconComponent = feature.icon;
             return (
               <div key={index} className="feature-card">
