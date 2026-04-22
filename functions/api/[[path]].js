@@ -526,6 +526,36 @@ const stripeRequest = async (method, path, params, env) => {
   return data;
 };
 
+const isStripeMissingResourceError = (error) => /No such (customer|subscription)/i.test(error?.message || '');
+
+const createStripeCustomer = async (dbUser, env) =>
+  stripeRequest(
+    'POST',
+    '/customers',
+    {
+      email: dbUser.email,
+      name: dbUser.username,
+      'metadata[userId]': String(dbUser.id),
+    },
+    env
+  );
+
+const saveStripeCustomerId = async (db, userId, customerId) => {
+  await db
+    .prepare('UPDATE users SET stripe_customer_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .bind(customerId, userId)
+    .run();
+};
+
+const clearStripeBillingState = async (db, userId) => {
+  await db
+    .prepare(
+      'UPDATE users SET membership_tier = ?, stripe_customer_id = NULL, stripe_subscription_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    )
+    .bind(MEMBERSHIP_TIERS.FREE, userId)
+    .run();
+};
+
 const verifyStripeSignature = async (rawBody, sigHeader, secret) => {
   if (!sigHeader || !secret) return false;
   const parts = {};
@@ -1581,19 +1611,12 @@ async function handleBilling(request, env, segments) {
     }
     let customerId = dbUser.stripe_customer_id;
     if (!customerId) {
-      const customer = await stripeRequest('POST', '/customers', {
-        email: dbUser.email,
-        name: dbUser.username,
-        'metadata[userId]': String(dbUser.id),
-      }, env);
+      const customer = await createStripeCustomer(dbUser, env);
       customerId = customer.id;
-      await db
-        .prepare('UPDATE users SET stripe_customer_id = ? WHERE id = ?')
-        .bind(customerId, dbUser.id)
-        .run();
+      await saveStripeCustomerId(db, dbUser.id, customerId);
     }
     const appUrl = (env.APP_URL || 'https://tagsta.sh').replace(/\/$/, '');
-    const session = await stripeRequest('POST', '/checkout/sessions', {
+    const checkoutParams = {
       customer: customerId,
       mode: 'subscription',
       'line_items[0][price]': priceId,
@@ -1601,7 +1624,28 @@ async function handleBilling(request, env, segments) {
       success_url: `${appUrl}/?billing=success`,
       cancel_url: `${appUrl}/?billing=cancelled`,
       'metadata[userId]': String(dbUser.id),
-    }, env);
+    };
+    let session;
+    try {
+      session = await stripeRequest('POST', '/checkout/sessions', checkoutParams, env);
+    } catch (error) {
+      if (!customerId || !isStripeMissingResourceError(error)) {
+        throw error;
+      }
+
+      const customer = await createStripeCustomer(dbUser, env);
+      customerId = customer.id;
+      await saveStripeCustomerId(db, dbUser.id, customerId);
+      session = await stripeRequest(
+        'POST',
+        '/checkout/sessions',
+        {
+          ...checkoutParams,
+          customer: customerId,
+        },
+        env
+      );
+    }
     return jsonResponse({ url: session.url });
   }
 
@@ -1617,10 +1661,20 @@ async function handleBilling(request, env, segments) {
       return jsonResponse({ error: 'No billing account found' }, 404);
     }
     const appUrl = (env.APP_URL || 'https://tagsta.sh').replace(/\/$/, '');
-    const session = await stripeRequest('POST', '/billing_portal/sessions', {
-      customer: dbUser.stripe_customer_id,
-      return_url: `${appUrl}/settings`,
-    }, env);
+    let session;
+    try {
+      session = await stripeRequest('POST', '/billing_portal/sessions', {
+        customer: dbUser.stripe_customer_id,
+        return_url: `${appUrl}/settings`,
+      }, env);
+    } catch (error) {
+      if (!isStripeMissingResourceError(error)) {
+        throw error;
+      }
+
+      await clearStripeBillingState(db, dbUser.id);
+      return jsonResponse({ error: 'No billing account found' }, 404);
+    }
     return jsonResponse({ url: session.url });
   }
 
@@ -1648,12 +1702,31 @@ async function handleBilling(request, env, segments) {
       });
     }
 
-    const subscription = await stripeRequest(
-      'GET',
-      `/subscriptions/${dbUser.stripe_subscription_id}`,
-      null,
-      env
-    );
+    let subscription;
+    try {
+      subscription = await stripeRequest(
+        'GET',
+        `/subscriptions/${dbUser.stripe_subscription_id}`,
+        null,
+        env
+      );
+    } catch (error) {
+      if (!isStripeMissingResourceError(error)) {
+        throw error;
+      }
+
+      await clearStripeBillingState(db, dbUser.id);
+      const refreshedUser = await db
+        .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+        .bind(dbUser.id)
+        .first();
+
+      return jsonResponse({
+        synced: true,
+        subscription: null,
+        user: refreshedUser,
+      });
+    }
 
     const status = subscription?.status;
     const nextTier = ['active', 'trialing'].includes(status)
