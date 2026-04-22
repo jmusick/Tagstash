@@ -8,6 +8,7 @@ import './Settings.css';
 function Settings({ onClose, pageMode = false, onImportComplete }) {
   const { user, updateUser } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
+  const currentMembershipTier = user?.membership_tier || user?.membershipTier || 'free';
   const [activeTab, setActiveTab] = useState('username');
   const [loading, setLoading] = useState(false);
   const [loadingKeys, setLoadingKeys] = useState(false);
@@ -733,20 +734,20 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           <div className="settings-billing-tab">
             <div className="billing-current-plan">
               <div className="billing-plan-badge">
-                {user?.membershipTier === 'paid' ? (
+                {currentMembershipTier === 'paid' ? (
                   <><Zap size={16} /> Pro</>
                 ) : (
                   <><CreditCard size={16} /> Free</>
                 )}
               </div>
               <p className="billing-plan-label">
-                {user?.membershipTier === 'paid'
+                {currentMembershipTier === 'paid'
                   ? 'You are on the Pro plan.'
                   : `You are on the Free plan (up to 50 bookmarks).`}
               </p>
             </div>
 
-            {user?.membershipTier === 'paid' ? (
+            {currentMembershipTier === 'paid' ? (
               <div className="billing-manage">
                 <p className="billing-manage-description">
                   Manage your subscription, update payment method, or cancel via the Stripe portal.

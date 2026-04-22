@@ -659,23 +659,23 @@ function App() {
       </header>
 
       <main className="app-main">
-        {billingMessage === 'success' && (
-          <div className="billing-banner billing-banner--success">
-            <span>Your subscription is now active — welcome to Pro!</span>
-            <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-        {billingMessage === 'cancelled' && (
-          <div className="billing-banner billing-banner--info">
-            <span>Checkout cancelled. You can upgrade anytime from Settings.</span>
-            <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
-              <X size={14} />
-            </button>
-          </div>
-        )}
         <div className="main-content">
+          {billingMessage === 'success' && (
+            <div className="billing-banner billing-banner--success">
+              <span>Your subscription is now active — welcome to Pro!</span>
+              <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {billingMessage === 'cancelled' && (
+            <div className="billing-banner billing-banner--info">
+              <span>Checkout cancelled. You can upgrade anytime from Settings.</span>
+              <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
+                <X size={14} />
+              </button>
+            </div>
+          )}
           <div className="toolbar">
             <div className="sort-control">
               <label htmlFor="sortBy">Sort by</label>
