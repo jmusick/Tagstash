@@ -9,7 +9,7 @@ import SupportPage from './components/SupportPage'
 import VerifyEmail from './components/VerifyEmail'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI, billingAPI } from './api/api'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun, Info } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
@@ -26,6 +26,13 @@ const normalizeBookmarkUrl = (value) => {
 
   return cleaned ? `https://${cleaned}` : ''
 }
+
+const ActionInfo = ({ text }) => (
+  <span className="action-info-inline" aria-hidden="true">
+    <Info size={11} />
+    <span className="action-info-tooltip" role="tooltip">{text}</span>
+  </span>
+)
 
 const getInitialTheme = () => {
   if (typeof window === 'undefined') {
@@ -700,7 +707,7 @@ function App() {
         <div className="main-content">
           {billingMessage === 'success' && (
             <div className="billing-banner billing-banner--success">
-              <span>Your subscription is now active — welcome to Pro!</span>
+              <span>Your subscription is now active ΓÇö welcome to Pro!</span>
               <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
                 <X size={14} />
               </button>
@@ -782,9 +789,11 @@ function App() {
                     <div className="field-actions">
                       <button type="button" className="btn-field-action" onClick={handleBaseUrl}>
                         <Globe size={13} /><span>Base URL</span>
+                        <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
                       </button>
                       <button type="button" className="btn-field-action" onClick={handleTrimUrl}>
                         <Scissors size={13} /><span>Trim URL</span>
+                        <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
                       </button>
                     </div>
                   )}
@@ -849,6 +858,7 @@ function App() {
                     disabled={!formData.url.trim() || fetchingDescription}
                   >
                     <FileText size={13} /><span>{fetchingDescription ? 'Fetching...' : 'Fetch From Site'}</span>
+                    <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
                   </button>
                 </div>
                 <textarea 
@@ -985,6 +995,7 @@ function App() {
                           >
                             <RefreshCw size={13} />
                             <span>{fetchingEditTitle ? 'Fetching...' : 'Fetch Title'}</span>
+                            <ActionInfo text="Attempts to read page metadata and replace the title field with the page title." />
                           </button>
                         </div>
                         <input
@@ -1003,9 +1014,11 @@ function App() {
                             <div className="field-actions">
                               <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
                                 <Globe size={13} /><span>Base URL</span>
+                                <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
                               </button>
                               <button type="button" className="btn-field-action" onClick={handleEditTrimUrl}>
                                 <Scissors size={13} /><span>Trim URL</span>
+                                <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
                               </button>
                             </div>
                           )}
@@ -1029,6 +1042,7 @@ function App() {
                             disabled={!editFormData.url.trim() || fetchingEditDescription}
                           >
                             <FileText size={13} /><span>{fetchingEditDescription ? 'Fetching...' : 'Fetch From Site'}</span>
+                            <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
                           </button>
                         </div>
                         <textarea
