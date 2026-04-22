@@ -438,19 +438,49 @@ const setBookmarkTags = async (db, bookmarkId, tags) => {
   return bookmarkTags;
 };
 
+const normalizeBookmarkUrl = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  let normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  // Treat missing or malformed protocol prefixes as secure by default.
+  normalized = normalized
+    .replace(/^https?:/i, '')
+    .replace(/^\/\//, '')
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  return `https://${normalized}`;
+};
+
+const isValidHttpUrl = (value) => {
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+};
+
 const fetchSiteMetadata = async (url) => {
   if (!url || typeof url !== 'string') {
     return { error: 'A valid URL is required', status: 400 };
   }
 
-  let normalizedUrl = url.trim();
-  if (!/^https?:\/\//i.test(normalizedUrl)) {
-    normalizedUrl = `https://${normalizedUrl}`;
-  }
-
-  try {
-    new URL(normalizedUrl);
-  } catch {
+  const normalizedUrl = normalizeBookmarkUrl(url);
+  if (!normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
     return { error: 'Invalid URL format', status: 400 };
   }
 
@@ -1361,8 +1391,9 @@ async function handleBookmarks(request, env, segments) {
 
     for (const bm of bookmarks) {
       const { title, url, description, tags } = bm || {};
+      const normalizedUrl = normalizeBookmarkUrl(url);
 
-      if (!title || !url) {
+      if (!title || !normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
         results.skipped += 1;
         continue;
       }
@@ -1375,7 +1406,7 @@ async function handleBookmarks(request, env, segments) {
 
       const existing = await db
         .prepare('SELECT id FROM bookmarks WHERE user_id = ? AND url = ?')
-        .bind(auth.user.id, url)
+        .bind(auth.user.id, normalizedUrl)
         .first();
 
       if (existing) {
@@ -1387,7 +1418,7 @@ async function handleBookmarks(request, env, segments) {
         .prepare(
           'INSERT INTO bookmarks (user_id, title, url, description, favicon_url) VALUES (?, ?, ?, ?, ?)'
         )
-        .bind(auth.user.id, title, url, description || null, getFaviconUrl(url))
+        .bind(auth.user.id, title, normalizedUrl, description || null, getFaviconUrl(normalizedUrl))
         .run();
 
       const bookmarkId = insert.meta.last_row_id;
@@ -1441,9 +1472,14 @@ async function handleBookmarks(request, env, segments) {
 
   if (request.method === 'POST' && segments.length === 1) {
     const { title, url, description, tags } = await parseBody(request);
+    const normalizedUrl = normalizeBookmarkUrl(url);
 
-    if (!title || !url) {
+    if (!title || !normalizedUrl) {
       return jsonResponse({ error: 'Title and URL are required' }, 400);
+    }
+
+    if (!isValidHttpUrl(normalizedUrl)) {
+      return jsonResponse({ error: 'Invalid URL format' }, 400);
     }
 
     const planStatus = await getUserPlanStatus(db, auth.user.id);
@@ -1464,7 +1500,7 @@ async function handleBookmarks(request, env, segments) {
       .prepare(
         'INSERT INTO bookmarks (user_id, title, url, description, favicon_url) VALUES (?, ?, ?, ?, ?)'
       )
-      .bind(auth.user.id, title, url, description || null, getFaviconUrl(url))
+      .bind(auth.user.id, title, normalizedUrl, description || null, getFaviconUrl(normalizedUrl))
       .run();
 
     const bookmark = await db
@@ -1522,6 +1558,7 @@ async function handleBookmarks(request, env, segments) {
 
     if (request.method === 'PUT') {
       const { title, url, description, tags } = await parseBody(request);
+      const normalizedUrl = normalizeBookmarkUrl(url);
 
       const existing = await db
         .prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')
@@ -1532,9 +1569,17 @@ async function handleBookmarks(request, env, segments) {
         return jsonResponse({ error: 'Bookmark not found' }, 404);
       }
 
+      if (!title || !normalizedUrl) {
+        return jsonResponse({ error: 'Title and URL are required' }, 400);
+      }
+
+      if (!isValidHttpUrl(normalizedUrl)) {
+        return jsonResponse({ error: 'Invalid URL format' }, 400);
+      }
+
       await db
         .prepare('UPDATE bookmarks SET title = ?, url = ?, description = ?, favicon_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?')
-        .bind(title, url, description || null, getFaviconUrl(url), bookmarkId, auth.user.id)
+        .bind(title, normalizedUrl, description || null, getFaviconUrl(normalizedUrl), bookmarkId, auth.user.id)
         .run();
 
       const bookmark = await db

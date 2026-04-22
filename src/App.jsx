@@ -14,6 +14,19 @@ import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, G
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
 
+const normalizeBookmarkUrl = (value) => {
+  const raw = (value || '').trim()
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw)) return raw
+
+  const cleaned = raw
+    .replace(/^https?:/i, '')
+    .replace(/^\/\//, '')
+    .trim()
+
+  return cleaned ? `https://${cleaned}` : ''
+}
+
 const getInitialTheme = () => {
   if (typeof window === 'undefined') {
     return 'dark'
@@ -311,28 +324,28 @@ function App() {
 
   const handleBaseUrl = () => {
     try {
-      const u = new URL(formData.url)
+      const u = new URL(normalizeBookmarkUrl(formData.url))
       setFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
   const handleTrimUrl = () => {
     try {
-      const u = new URL(formData.url)
+      const u = new URL(normalizeBookmarkUrl(formData.url))
       setFormData(prev => ({ ...prev, url: u.origin + u.pathname }))
     } catch {}
   }
 
   const handleEditBaseUrl = () => {
     try {
-      const u = new URL(editFormData.url)
+      const u = new URL(normalizeBookmarkUrl(editFormData.url))
       setEditFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
   const handleEditTrimUrl = () => {
     try {
-      const u = new URL(editFormData.url)
+      const u = new URL(normalizeBookmarkUrl(editFormData.url))
       setEditFormData(prev => ({ ...prev, url: u.origin + u.pathname }))
     } catch {}
   }
@@ -387,9 +400,15 @@ function App() {
         return
       }
 
+      const normalizedUrl = normalizeBookmarkUrl(formData.url)
+      if (!normalizedUrl) {
+        setError('Title and URL are required')
+        return
+      }
+
       const bookmarkData = {
         title: formData.title,
-        url: formData.url,
+        url: normalizedUrl,
         description: formData.description || null,
         tags
       }
@@ -483,9 +502,16 @@ function App() {
 
       setSavingEdit(true)
       setError('')
+      const normalizedUrl = normalizeBookmarkUrl(editFormData.url)
+      if (!normalizedUrl) {
+        setError('Title and URL are required')
+        setSavingEdit(false)
+        return
+      }
+
       await bookmarksAPI.update(bookmarkId, {
         title: editFormData.title.trim(),
-        url: editFormData.url.trim(),
+        url: normalizedUrl,
         description: editFormData.description.trim() || null,
         tags,
       })
