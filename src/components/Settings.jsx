@@ -775,7 +775,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                 <p className="billing-manage-description">
                   Manage your subscription, update payment method, or cancel via the Stripe portal.
                 </p>
-                {subscriptionStatus?.cancel_at_period_end && cancellationDateLabel && (
+                {cancellationDateLabel && (
                   <p className="billing-cancel-note">
                     Your Pro plan is scheduled to end on {cancellationDateLabel}. You keep Pro access until then.
                   </p>
