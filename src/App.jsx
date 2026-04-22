@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext'
 import Home from './components/Home'
 import Settings from './components/Settings'
 import PolicyPage from './components/PolicyPage'
+import SupportPage from './components/SupportPage'
 import VerifyEmail from './components/VerifyEmail'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI, billingAPI } from './api/api'
@@ -567,6 +568,16 @@ function App() {
     )
   }
 
+  if (activePage === 'support') {
+    return (
+      <SupportPage
+        logoSrc={logoSrc}
+        prefillEmail={user?.email || ''}
+        onBack={() => setActivePage(user ? 'bookmarks' : 'home')}
+      />
+    )
+  }
+
   if (activePage === 'verify-email') {
     return <VerifyEmail logoSrc={logoSrc} />
   }
@@ -618,6 +629,7 @@ function App() {
         <footer className="app-footer">
           <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
           <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
+          <button className="footer-privacy-link" onClick={() => setActivePage('support')}>Support</button>
           <span className="version">v{version}</span>
         </footer>
       </div>
@@ -1105,6 +1117,7 @@ function App() {
       <footer className="app-footer">
         <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
         <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
+        <button className="footer-privacy-link" onClick={() => setActivePage('support')}>Support</button>
         <span className="version">v{version}</span>
       </footer>
 

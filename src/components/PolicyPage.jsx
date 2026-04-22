@@ -93,8 +93,8 @@ function PolicyPage({ logoSrc, onBack }) {
         <section>
           <h2>Contact</h2>
           <p>
-            Questions about this policy? Reach us at{' '}
-            <a href="mailto:privacy@tagsta.sh">privacy@tagsta.sh</a>.
+            Questions about this policy? Use the in-app Support form and include
+            "Privacy Policy" in your message.
           </p>
         </section>
       </main>

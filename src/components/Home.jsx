@@ -312,6 +312,8 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
       <footer className="home-footer">
         <p>&copy; {new Date().getFullYear()} Tagstash &nbsp;&middot;&nbsp;
           <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
+          &nbsp;&middot;&nbsp;
+          <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>
           &nbsp;&middot;&nbsp;<span className="version">v{version}</span>
         </p>
       </footer>

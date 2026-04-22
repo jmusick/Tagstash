@@ -110,4 +110,9 @@ export const billingAPI = {
     api.post('/billing/portal-session'),
 };
 
+export const supportAPI = {
+  submit: ({ email, message, captchaToken }) =>
+    api.post('/support', { email, message, captchaToken }),
+};
+
 export default api;

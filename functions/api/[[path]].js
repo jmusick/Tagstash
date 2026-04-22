@@ -240,6 +240,45 @@ const parseBody = async (request) => {
   }
 };
 
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const verifyTurnstile = async (request, env, captchaToken) => {
+  if (!env.TURNSTILE_SECRET_KEY) {
+    return { ok: false, status: 503, error: 'Support form is not configured.' };
+  }
+
+  if (!captchaToken || typeof captchaToken !== 'string') {
+    return { ok: false, status: 400, error: 'CAPTCHA token is required.' };
+  }
+
+  const remoteIp = request.headers.get('CF-Connecting-IP') || '';
+  const payload = new URLSearchParams({
+    secret: env.TURNSTILE_SECRET_KEY,
+    response: captchaToken,
+  });
+
+  if (remoteIp) {
+    payload.set('remoteip', remoteIp);
+  }
+
+  try {
+    const verifyResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: payload.toString(),
+    });
+    const verifyData = await verifyResponse.json();
+
+    if (!verifyData?.success) {
+      return { ok: false, status: 400, error: 'CAPTCHA verification failed. Please try again.' };
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false, status: 502, error: 'Could not verify CAPTCHA. Please try again.' };
+  }
+};
+
 const getBearerToken = (request) => {
   const authHeader = request.headers.get('Authorization') || '';
   const [scheme, token] = authHeader.split(' ');
@@ -1656,6 +1695,77 @@ async function handleBilling(request, env, segments) {
   return jsonResponse({ error: 'Route not found' }, 404);
 }
 
+async function handleSupport(request, env, segments) {
+  if (request.method !== 'POST' || segments.length !== 1) {
+    return jsonResponse({ error: 'Route not found' }, 404);
+  }
+
+  const { email, message, captchaToken } = await parseBody(request);
+  const normalizedEmail = normalizeEmail(email);
+  const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+
+  if (!normalizedEmail || !trimmedMessage) {
+    return jsonResponse({ error: 'Email and message are required.' }, 400);
+  }
+
+  if (!isValidEmail(normalizedEmail)) {
+    return jsonResponse({ error: 'Please provide a valid email address.' }, 400);
+  }
+
+  if (trimmedMessage.length < 10) {
+    return jsonResponse({ error: 'Message must be at least 10 characters.' }, 400);
+  }
+
+  if (trimmedMessage.length > 4000) {
+    return jsonResponse({ error: 'Message must be 4000 characters or less.' }, 400);
+  }
+
+  const captcha = await verifyTurnstile(request, env, captchaToken);
+  if (!captcha.ok) {
+    return jsonResponse({ error: captcha.error }, captcha.status);
+  }
+
+  if (!env.RESEND_API_KEY) {
+    return jsonResponse({ error: 'Support email is not configured.' }, 503);
+  }
+
+  const resend = new Resend(env.RESEND_API_KEY);
+  const toAddress = env.SUPPORT_EMAIL || 'support@tagsta.sh';
+  const fromAddress = env.EMAIL_FROM || 'Tagstash <onboarding@resend.dev>';
+
+  const textBody = [
+    'New Tagstash support request',
+    '',
+    `Account email: ${normalizedEmail}`,
+    '',
+    'Message:',
+    trimmedMessage,
+  ].join('\n');
+
+  const htmlBody = `
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
+  <h2 style="margin:0 0 12px;">New Tagstash support request</h2>
+  <p><strong>Account email:</strong> ${normalizedEmail}</p>
+  <p><strong>Message:</strong></p>
+  <pre style="white-space: pre-wrap; font-family: inherit; background: #f3f4f6; padding: 12px; border-radius: 8px;">${trimmedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+</div>`;
+
+  const { error } = await resend.emails.send({
+    from: fromAddress,
+    to: toAddress,
+    replyTo: normalizedEmail,
+    subject: `Tagstash support request from ${normalizedEmail}`,
+    text: textBody,
+    html: htmlBody,
+  });
+
+  if (error) {
+    return jsonResponse({ error: 'Failed to send support request. Please try again.' }, 500);
+  }
+
+  return jsonResponse({ message: 'Support request sent successfully.' }, 201);
+}
+
 export const onRequestOptions = async () => new Response(null, { status: 204, headers: corsHeaders });
 
 export async function onRequest(context) {
@@ -1686,6 +1796,10 @@ export async function onRequest(context) {
 
     if (segments[1] === 'billing') {
       return handleBilling(request, env, segments.slice(1));
+    }
+
+    if (segments[1] === 'support') {
+      return handleSupport(request, env, segments.slice(1));
     }
 
     return jsonResponse({ error: 'Route not found' }, 404);
