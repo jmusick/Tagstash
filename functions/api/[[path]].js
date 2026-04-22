@@ -1582,6 +1582,65 @@ async function handleBilling(request, env, segments) {
     return jsonResponse({ url: session.url });
   }
 
+  if (request.method === 'GET' && segments[1] === 'status') {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+    if (!env.STRIPE_SECRET_KEY) {
+      return jsonResponse({ error: 'Stripe is not configured' }, 503);
+    }
+
+    const dbUser = await db.prepare('SELECT * FROM users WHERE id = ?').bind(auth.user.id).first();
+    if (!dbUser) return jsonResponse({ error: 'User not found' }, 404);
+
+    if (!dbUser.stripe_subscription_id) {
+      return jsonResponse({
+        synced: true,
+        subscription: null,
+        user: {
+          id: dbUser.id,
+          username: dbUser.username,
+          email: dbUser.email,
+          membership_tier: dbUser.membership_tier,
+          role: dbUser.role,
+        },
+      });
+    }
+
+    const subscription = await stripeRequest(
+      'GET',
+      `/subscriptions/${dbUser.stripe_subscription_id}`,
+      null,
+      env
+    );
+
+    const status = subscription?.status;
+    const nextTier = ['active', 'trialing'].includes(status)
+      ? MEMBERSHIP_TIERS.PAID
+      : MEMBERSHIP_TIERS.FREE;
+
+    if (dbUser.membership_tier !== nextTier) {
+      await db
+        .prepare('UPDATE users SET membership_tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .bind(nextTier, dbUser.id)
+        .run();
+    }
+
+    const refreshedUser = await db
+      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+      .bind(dbUser.id)
+      .first();
+
+    return jsonResponse({
+      synced: true,
+      subscription: {
+        id: subscription?.id,
+        status: subscription?.status,
+        cancel_at_period_end: !!subscription?.cancel_at_period_end,
+      },
+      user: refreshedUser,
+    });
+  }
+
   if (request.method === 'GET' && segments[1] === 'plans') {
     return jsonResponse({
       plans: [

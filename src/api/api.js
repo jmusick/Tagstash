@@ -100,6 +100,9 @@ export const billingAPI = {
   getPlans: () =>
     api.get('/billing/plans'),
 
+  getStatus: () =>
+    api.get('/billing/status'),
+
   createCheckoutSession: (plan) =>
     api.post('/billing/checkout-session', { plan }),
 

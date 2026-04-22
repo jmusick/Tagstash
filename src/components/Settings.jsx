@@ -36,6 +36,17 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
     }
   }, []);
 
+  const syncBillingStatus = useCallback(async () => {
+    try {
+      const res = await billingAPI.getStatus();
+      if (res?.data?.user) {
+        updateUser({ ...user, ...res.data.user });
+      }
+    } catch {
+      // If status sync fails, keep current UI state and let normal billing actions continue.
+    }
+  }, [updateUser, user]);
+
   const handleUpgrade = async (plan) => {
     try {
       setBillingLoading(true);
@@ -439,6 +450,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
               setError('');
               setSuccess('');
               fetchPlans();
+              syncBillingStatus();
             }}
           >
             Billing
