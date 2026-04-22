@@ -113,7 +113,7 @@ function Home({ logoSrc, theme, onToggleTheme }) {
 
   if (pendingEmail) {
     return (
-      <div className="home-container">
+      <div className="home-container home-container--centered">
         <div className="home-topbar">
           <button
             type="button"
@@ -125,7 +125,7 @@ function Home({ logoSrc, theme, onToggleTheme }) {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
-        <section className="hero-section">
+        <div className="home-centered-content">
           <div className="auth-card">
             <h2 className="auth-card-title">Check your email</h2>
             <p className="auth-description">
@@ -143,7 +143,7 @@ function Home({ logoSrc, theme, onToggleTheme }) {
               </button>
             </div>
           </div>
-        </section>
+          </div>
       </div>
     );
   }

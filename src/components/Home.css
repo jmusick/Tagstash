@@ -5,6 +5,17 @@
   background: transparent;
 }
 
+.home-container--centered {
+  justify-content: center;
+  align-items: center;
+}
+
+.home-centered-content {
+  width: 100%;
+  max-width: 480px;
+  padding: 1rem 2rem 2rem;
+}
+
 .home-topbar {
   display: flex;
   justify-content: flex-end;

@@ -7,7 +7,7 @@ import Settings from './components/Settings'
 import PolicyPage from './components/PolicyPage'
 import VerifyEmail from './components/VerifyEmail'
 import TagCloud from './components/TagCloud'
-import { bookmarksAPI } from './api/api'
+import { bookmarksAPI, billingAPI } from './api/api'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
@@ -61,6 +61,8 @@ function App() {
   const [tagDraft, setTagDraft] = useState('')
   const [editTagDraft, setEditTagDraft] = useState('')
   const [tagsRefreshKey, setTagsRefreshKey] = useState(0)
+  const [usageUpgradePlan, setUsageUpgradePlan] = useState('monthly')
+  const [startingUpgrade, setStartingUpgrade] = useState(false)
   const [billingMessage, setBillingMessage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('billing') || ''
@@ -118,6 +120,23 @@ function App() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpgradeFromUsageCard = async () => {
+    try {
+      setStartingUpgrade(true)
+      const response = await billingAPI.createCheckoutSession(usageUpgradePlan)
+      const checkoutUrl = response?.data?.url
+
+      if (!checkoutUrl) {
+        throw new Error('Missing checkout URL')
+      }
+
+      window.location.assign(checkoutUrl)
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to start checkout. Please try again.')
+      setStartingUpgrade(false)
     }
   }
 
@@ -831,8 +850,31 @@ function App() {
               <div className="usage-meter-bar" style={{ width: `${freeUsagePercent}%` }} />
             </div>
             <div className="membership-summary-actions">
-              <button type="button" className="upgrade-placeholder-link" aria-disabled="true">
-                Upgrade
+              <div className="upgrade-plan-toggle" role="group" aria-label="Choose billing plan">
+                <button
+                  type="button"
+                  className={`upgrade-plan-btn ${usageUpgradePlan === 'monthly' ? 'active' : ''}`}
+                  onClick={() => setUsageUpgradePlan('monthly')}
+                  disabled={startingUpgrade}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  className={`upgrade-plan-btn ${usageUpgradePlan === 'annual' ? 'active' : ''}`}
+                  onClick={() => setUsageUpgradePlan('annual')}
+                  disabled={startingUpgrade}
+                >
+                  Annual
+                </button>
+              </div>
+              <button
+                type="button"
+                className="upgrade-placeholder-link"
+                onClick={handleUpgradeFromUsageCard}
+                disabled={startingUpgrade}
+              >
+                {startingUpgrade ? 'Opening checkout...' : `Upgrade (${usageUpgradePlan === 'monthly' ? 'Monthly' : 'Annual'})`}
               </button>
             </div>
             {isFreeLimitReached && (
