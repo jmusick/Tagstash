@@ -207,6 +207,74 @@
   gap: 0.9rem;
 }
 
+.settings-extensions-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.settings-extensions-description {
+  margin: 0;
+  opacity: 0.82;
+  font-size: 0.92rem;
+}
+
+.settings-extension-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-soft);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.settings-extension-card:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.4);
+  background: var(--color-surface-soft-hover);
+  transform: translateY(-1px);
+}
+
+.settings-extension-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.settings-extension-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-tag-start) 0%, var(--color-tag-end) 100%);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.settings-extension-link-text {
+  font-size: 0.82rem;
+  color: var(--color-primary-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.settings-extension-card h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.settings-extension-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  opacity: 0.84;
+}
+
 .settings-import-description {
   margin: 0;
   opacity: 0.82;
@@ -328,6 +396,40 @@
   margin: 0;
   font-size: 0.9rem;
   opacity: 0.82;
+}
+
+.admin-users-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.admin-users-search {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background-color: var(--color-surface-soft);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.admin-users-search::placeholder {
+  color: var(--color-placeholder);
+}
+
+.admin-users-search:focus {
+  outline: none;
+  border-color: var(--color-primary-strong);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
+}
+
+.admin-users-search-count {
+  font-size: 0.82rem;
+  opacity: 0.75;
 }
 
 .admin-users-list {

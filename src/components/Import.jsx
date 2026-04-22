@@ -105,14 +105,22 @@ function parseRaindropCSV(text) {
   return bookmarks;
 }
 
-// Parse a Firefox/Netscape HTML bookmark export into bookmark objects.
+// Parse a browser Netscape-style HTML bookmark export into bookmark objects.
 // Walks the folder hierarchy and uses folder names as tags.
-function parseFirefoxHTML(html) {
+function parseBrowserBookmarksHTML(html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
 
   const SKIP_FOLDERS = new Set([
-    'bookmarks menu', 'bookmarks toolbar', 'other bookmarks', 'bookmarks', 'menu',
+    'bookmarks menu',
+    'bookmarks toolbar',
+    'bookmarks bar',
+    'other bookmarks',
+    'mobile bookmarks',
+    'imported from firefox',
+    'toolbar',
+    'bookmarks',
+    'menu',
   ]);
 
   const bookmarks = [];
@@ -165,22 +173,24 @@ function Import({ onClose, onImportComplete, inline = false }) {
   const [source, setSource] = useState('raindrop');
   const fileInputRef = useRef(null);
 
+  const isBrowserHtmlSource = source === 'firefox' || source === 'chrome';
+
   const handleFile = (file) => {
     if (!file) return;
 
-    if (source === 'firefox') {
+    if (isBrowserHtmlSource) {
       if (!file.name.toLowerCase().endsWith('.html') && !file.name.toLowerCase().endsWith('.htm')) {
-        setError('Please select an HTML file exported from Firefox.');
+        setError('Please select an HTML bookmarks export file.');
         return;
       }
       const reader = new FileReader();
       reader.onload = (e) => {
         const html = e.target.result;
         if (!html.includes('NETSCAPE-Bookmark-file')) {
-          setError('This does not look like a Firefox bookmark export. Use Bookmarks → Manage Bookmarks → Import and Backup → Export Bookmarks to HTML.');
+          setError('This does not look like a bookmarks HTML export file. Please export bookmarks as HTML and try again.');
           return;
         }
-        const bookmarks = parseFirefoxHTML(html);
+        const bookmarks = parseBrowserBookmarksHTML(html);
         if (bookmarks.length === 0) {
           setError('No valid bookmarks found in this file.');
           return;
@@ -282,6 +292,7 @@ function Import({ onClose, onImportComplete, inline = false }) {
         <select id="import-source" value={source} onChange={handleSourceChange}>
           <option value="raindrop">Raindrop.io (CSV)</option>
           <option value="firefox">Firefox Bookmarks (HTML)</option>
+          <option value="chrome">Google Chrome Bookmarks (HTML)</option>
           <option value="pinboard">Pinboard.in (coming soon)</option>
         </select>
       </div>
@@ -301,12 +312,14 @@ function Import({ onClose, onImportComplete, inline = false }) {
         </div>
       )}
 
-      {(source === 'raindrop' || source === 'firefox') && stage === 'idle' && (
+      {(source === 'raindrop' || source === 'firefox' || source === 'chrome') && stage === 'idle' && (
         <>
           <p className="import-hint">
             {source === 'firefox'
-              ? 'Export your bookmarks from Firefox: Bookmarks → Manage Bookmarks → Import and Backup → Export Bookmarks to HTML. Then upload the file here.'
-              : 'Export your bookmarks from Raindrop.io as a CSV file, then upload it here.'}
+              ? 'Export from Firefox: Bookmarks -> Manage Bookmarks -> Import and Backup -> Export Bookmarks to HTML. Then upload the file here.'
+              : source === 'chrome'
+                ? 'Export from Chrome: Bookmark Manager -> Organize -> Export bookmarks. Then upload the HTML file here.'
+                : 'Export your bookmarks from Raindrop.io as a CSV file, then upload it here.'}
           </p>
           <div
             className={`drop-zone${dragging ? ' drop-zone--active' : ''}`}
@@ -317,16 +330,22 @@ function Import({ onClose, onImportComplete, inline = false }) {
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-            aria-label={source === 'firefox' ? 'Upload HTML bookmark file' : 'Upload CSV file'}
+            aria-label={isBrowserHtmlSource ? 'Upload HTML bookmark file' : 'Upload CSV file'}
           >
             <FileText size={36} className="drop-zone-icon" />
-            <p>{source === 'firefox' ? 'Drop your Firefox bookmarks HTML here' : 'Drop your Raindrop.io CSV here'}</p>
+            <p>
+              {source === 'firefox'
+                ? 'Drop your Firefox bookmarks HTML here'
+                : source === 'chrome'
+                  ? 'Drop your Chrome bookmarks HTML here'
+                  : 'Drop your Raindrop.io CSV here'}
+            </p>
             <span>or click to browse</span>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept={source === 'firefox' ? '.html,.htm' : '.csv'}
+            accept={isBrowserHtmlSource ? '.html,.htm' : '.csv'}
             className="hidden-file-input"
             onChange={handleFileInput}
           />

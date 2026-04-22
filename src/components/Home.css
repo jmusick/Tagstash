@@ -67,6 +67,25 @@
   font-weight: 500;
 }
 
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.6rem;
+}
+
+.hero-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.36rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
 .hero-description {
   font-size: 1.1rem;
   line-height: 1.8;
@@ -104,8 +123,16 @@
 .auth-card-title {
   font-size: 1.8rem;
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.7rem;
   color: var(--color-text);
+}
+
+.auth-card-intro {
+  margin: 0 0 1.6rem;
+  text-align: center;
+  color: var(--color-text-soft);
+  font-size: 0.96rem;
+  line-height: 1.5;
 }
 
 .auth-form {
@@ -197,6 +224,46 @@
 
 .auth-toggle-button:hover {
   color: var(--color-text);
+}
+
+.extension-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 1.25rem;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-soft);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.extension-link-card:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.4);
+  background: var(--color-surface-soft-hover);
+  transform: translateY(-1px);
+}
+
+.extension-link-kicker {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary-strong);
+}
+
+.extension-link-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.extension-link-copy {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--color-text-soft);
 }
 
 /* Features Section */
@@ -357,6 +424,14 @@
 
   .hero-subtitle {
     font-size: 1rem;
+  }
+
+  .hero-meta {
+    gap: 0.45rem;
+  }
+
+  .hero-meta-badge {
+    font-size: 0.78rem;
   }
 
   .features-grid {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI, billingAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2, CreditCard, Zap, CheckCircle } from 'lucide-react';
@@ -13,6 +13,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   const [loading, setLoading] = useState(false);
   const [loadingKeys, setLoadingKeys] = useState(false);
   const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
+  const [adminUserQuery, setAdminUserQuery] = useState('');
   const [savingAdminUserId, setSavingAdminUserId] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -192,6 +193,26 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
       setSavingAdminUserId(null);
     }
   };
+
+  const filteredAdminUsers = useMemo(() => {
+    const query = adminUserQuery.trim().toLowerCase();
+    if (!query) return adminUsers;
+
+    return adminUsers.filter((member) => {
+      const searchable = [
+        member.id,
+        member.username,
+        member.email,
+        member.membership_tier,
+        member.role,
+        member.bookmark_count,
+      ]
+        .map((value) => String(value ?? '').toLowerCase())
+        .join(' ');
+
+      return searchable.includes(query);
+    });
+  }, [adminUsers, adminUserQuery]);
 
   const handleCreateApiKey = async (e) => {
     e.preventDefault();
@@ -465,6 +486,16 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
             }}
           >
             Billing
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'extensions' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('extensions');
+              setError('');
+              setSuccess('');
+            }}
+          >
+            Extensions
           </button>
           <button
             className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
@@ -819,6 +850,30 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           </div>
         )}
 
+        {activeTab === 'extensions' && (
+          <div className="settings-extensions-tab">
+            <p className="settings-extensions-description">
+              Install the Tagstash browser extension to save the current page directly into your account.
+            </p>
+
+            <a
+              href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
+              target="_blank"
+              rel="noreferrer"
+              className="settings-extension-card"
+            >
+              <div className="settings-extension-card-head">
+                <span className="settings-extension-badge">Firefox</span>
+                <span className="settings-extension-link-text">Open Add-ons listing</span>
+              </div>
+              <h3>Tagstash for Firefox</h3>
+              <p>
+                Save the current tab without leaving the page. Great for quick capture while browsing.
+              </p>
+            </a>
+          </div>
+        )}
+
         {activeTab === 'import' && (
           <div className="settings-import-tab">
             <p className="settings-import-description">
@@ -834,13 +889,28 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
               Manage account access. Free users are limited to 50 bookmarks; paid users are unlimited.
             </p>
 
+            <div className="admin-users-search-wrap">
+              <input
+                type="text"
+                value={adminUserQuery}
+                onChange={(e) => setAdminUserQuery(e.target.value)}
+                placeholder="Search by email, username, id, role, or tier"
+                className="admin-users-search"
+              />
+              <span className="admin-users-search-count">
+                {filteredAdminUsers.length} match{filteredAdminUsers.length === 1 ? '' : 'es'}
+              </span>
+            </div>
+
             {loadingAdminUsers ? (
               <p className="admin-users-empty">Loading users...</p>
             ) : adminUsers.length === 0 ? (
               <p className="admin-users-empty">No users found.</p>
+            ) : filteredAdminUsers.length === 0 ? (
+              <p className="admin-users-empty">No users match that search.</p>
             ) : (
               <div className="admin-users-list">
-                {adminUsers.map((member) => (
+                {filteredAdminUsers.map((member) => (
                   <div key={member.id} className="admin-user-row">
                     <div className="admin-user-meta">
                       <p className="admin-user-name">{member.username}</p>

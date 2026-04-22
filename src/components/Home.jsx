@@ -5,7 +5,7 @@ import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun } from 'lucide-r
 import { version } from '../../package.json';
 import './Home.css';
 
-function Home({ logoSrc, theme, onToggleTheme }) {
+function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -79,37 +79,36 @@ function Home({ logoSrc, theme, onToggleTheme }) {
     {
       icon: Tag,
       title: 'Tag-Based Organization',
-      description: 'Organize your bookmarks with flexible, searchable tags instead of rigid folders.'
+      description: 'Save links with flexible tags, then find them again with search, sorting, and tag queries.'
     },
     {
       icon: Zap,
-      title: 'Lightning Fast',
-      description: 'Instant search and filtering across all your bookmarks with real-time tag cloud.'
+      title: 'Free And Pro Tiers',
+      description: 'Start free with up to 50 bookmarks, then upgrade to Pro for unlimited saving.'
     },
     {
       icon: Shield,
       title: 'Privacy Focused',
-      description: 'Your bookmarks are yours. No tracking, no ads, no selling your data.'
+      description: 'Run your own instance or use the hosted version. Your library stays centered on your own workflow.'
     },
     {
       icon: Cloud,
-      title: 'Always Accessible',
-      description: 'Access your bookmarks from anywhere with automatic session persistence.'
+      title: 'Hosted Or Self-Hosted',
+      description: 'Use the live service at tagsta.sh or run Tagstash yourself for non-commercial use.'
     },
     {
       icon: Smartphone,
-      title: 'Clean Interface',
-      description: 'Minimal, distraction-free design focused on what matters.'
+      title: 'Browser Extension',
+      description: 'Pair it with the companion extension to save the current tab without breaking your flow.'
     },
     {
       icon: Share2,
-      title: 'Api Keys',
-      description: 'Integrate with your own tools and services via API.',
-      hidden: true,
+      title: 'Account And Billing',
+      description: 'Email verification, admin controls, Stripe billing, and billing portal support are built in.',
     }
   ];
 
-  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth'];
+  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth', 'Stripe', 'Resend'];
 
   if (pendingEmail) {
     return (
@@ -167,15 +166,24 @@ function Home({ logoSrc, theme, onToggleTheme }) {
           <h1 className="hero-title">
             <img src={logoSrc} alt="Tagstash" className="hero-logo" />
           </h1>
-          <p className="hero-subtitle">A better way to bookmark the web</p>
+          <p className="hero-subtitle">Tag-first bookmarking for people who outgrow folders fast</p>
+          <div className="hero-meta">
+            <span className="hero-meta-badge">Free up to 50 bookmarks</span>
+            <span className="hero-meta-badge">Pro for unlimited saving</span>
+            <span className="hero-meta-badge">Hosted at tagsta.sh</span>
+          </div>
           
           <div className="hero-description">
             <p>
-              There are other tag-based bookmarking sites, but they either have features you don't want, 
-              or are missing features you do. So I created <strong>Tagstash</strong> to fill the hole for my own 
-              personal, nit-picky preferences.
+              <strong>Tagstash</strong> is a modern bookmarking app built for people who want fast capture,
+              clean organization, and retrieval by tags instead of rigid folder trees.
             </p>
-            <p className="tagline">Maybe you'll like it too.</p>
+            <p>
+              Create an account, verify your email, save bookmarks with tags and descriptions, then search,
+              filter, and manage your library from anywhere. If you prefer to run your own stack, you can
+              self-host it for free under the included non-commercial license.
+            </p>
+            <p className="tagline">Use the hosted app or run your own instance. Same tag-first philosophy.</p>
           </div>
         </div>
 
@@ -183,6 +191,11 @@ function Home({ logoSrc, theme, onToggleTheme }) {
           <h2 className="auth-card-title">
             {isLogin ? 'Welcome back!' : 'Get Started'}
           </h2>
+          <p className="auth-card-intro">
+            {isLogin
+              ? 'Sign in to access your bookmarks, billing, tags, and saved searches.'
+              : 'Create your account to start with the free plan and upgrade later if you need more space.'}
+          </p>
 
           <form onSubmit={handleSubmit} className="auth-form">
             {!isLogin && (
@@ -242,6 +255,17 @@ function Home({ logoSrc, theme, onToggleTheme }) {
               {isLogin ? 'Sign Up' : 'Log In'}
             </button>
           </div>
+
+          <a
+            href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
+            target="_blank"
+            rel="noreferrer"
+            className="extension-link-card"
+          >
+            <span className="extension-link-kicker">Firefox Extension</span>
+            <span className="extension-link-title">Install Tagstash for Firefox</span>
+            <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
+          </a>
         </div>
       </section>
 
