@@ -24,6 +24,9 @@ coverage
 # Cloudflare / Wrangler
 .wrangler/
 
+# Temporary local artifacts
+.tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
