@@ -1,199 +1,220 @@
-# 📚 Tagstash
+# Tagstash
 
-A modern, full-stack tag-based bookmarking web application built with React, Cloudflare Pages Functions, and D1 (SQLite). Organize your favorite links with custom tags, user authentication, and persistent storage.
+Tagstash is a self-hosted, tag-first bookmarking app built with React, Cloudflare Pages Functions, and D1. It includes user accounts, email verification, Stripe-powered Pro subscriptions, import tooling, and a companion browser extension.
+
+If you do not want to self-host it, you can use the official hosted version at https://tagsta.sh/
+
+## Project Status
+
+Tagstash is active and in real-world use.
+
+Current status at a glance:
+
+- User registration, login, and JWT-backed sessions are working
+- Email verification and resend flows are live
+- Free and Pro tiers are implemented
+- Stripe Checkout and Stripe Billing Portal are integrated
+- Admin controls exist for managing user roles and membership tiers
+- Bookmark CRUD, tag cloud filtering, import flow, and search are in place
+- Browser extension support exists in the companion TagstashExtension project
 
 ## Features
 
-- 🔐 **User Authentication**: Secure login and registration with JWT
-- 👥 **Membership Tiers**: Free users can save up to 50 bookmarks, paid users are unlimited
-- 🛡️ **Super Admin Controls**: Configurable super admin can manage user tiers and roles
-- 🏷️ **Tag-Based Organization**: Organize bookmarks with multiple tags
-- 💾 **Cloudflare D1 Database**: Persistent storage for users and bookmarks
-- 🎨 **Modern UI**: Clean and responsive interface
-- ⚡ **Fast**: Built with Vite for lightning-fast development
-- 🌙 **Dark Mode**: Supports light and dark color schemes
-- 📱 **Responsive**: Works great on desktop and mobile devices
+- Tag-first bookmark organization
+- Bookmark title, URL, description, and tag management
+- Search, sorting, and tag query filtering
+- Free tier with a 50-bookmark limit
+- Pro tier with unlimited bookmarks
+- Stripe Checkout for upgrades
+- Stripe Billing Portal for subscription management
+- Email verification via Resend
+- Super admin controls for managing users, roles, and tiers
+- Light and dark theme support
+- Responsive UI for desktop and mobile
+- Firefox/browser extension companion for saving the current tab quickly
 
-## Technology Stack
+## Hosted Version
+
+The commercial hosted version of Tagstash is available at https://tagsta.sh/
+
+That hosted service is the official paid offering run by the author. This repository is for people who want to study the codebase or run their own non-commercial instance under the included license terms.
+
+## Tech Stack
 
 ### Frontend
-- **React 18** - UI library
-- **Vite** - Build tool and dev server
-- **Axios** - HTTP client
-- **Context API** - State management
+
+- React 18
+- Vite
+- Axios
+- Context API
+- lucide-react
 
 ### Backend
-- **Cloudflare Pages Functions** - API runtime
-- **Cloudflare D1 (SQLite)** - Database
-- **bcryptjs** - Password hashing
-- **jose** - JWT authentication
 
-## Getting Started
+- Cloudflare Pages Functions
+- Cloudflare D1
+- bcryptjs
+- jose
+- Resend
+- Stripe REST API
+
+## Local Development
 
 ### Prerequisites
 
-- Node.js (version 18 or higher)
-- npm or yarn
+- Node.js 18+
+- npm
+- Wrangler / Cloudflare account for deployment workflows
 
-### Installation
+### Install
 
-1. **Clone or navigate to the project directory**:
 ```bash
 git clone https://github.com/jmusick/Tagstash.git
 cd Tagstash
-```
-
-2. **Install dependencies**:
-```bash
 npm install
 ```
 
-3. **Configure environment variables**:
-   - Copy `.dev.vars.example` to `.dev.vars`
-   - Set `JWT_SECRET`
-   - Optional: set `API_KEY_ENCRYPTION_SECRET` (defaults to `JWT_SECRET` when omitted)
-   - Set `SUPER_ADMIN_EMAIL` to your account email address
-   - Optional: set `BILLING_WEBHOOK_SECRET` to validate billing webhook calls
+### Configure local secrets
 
-4. **Database setup**:
+Create `.dev.vars` for local Cloudflare Functions development.
+
+Required or commonly used values:
+
+- `JWT_SECRET`
+- `SUPER_ADMIN_EMAIL`
+- `RESEND_API_KEY` for email verification
+- `API_KEY_ENCRYPTION_SECRET` optional, defaults to `JWT_SECRET` behavior in app usage
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_MONTHLY_PRICE_ID`
+- `STRIPE_ANNUAL_PRICE_ID`
+- `APP_URL` for hosted redirect URLs
+
+For the frontend, optionally create `.env` and set:
+
+- `VITE_API_URL` if you do not want to use the default local proxy
+
+### Database setup
+
 ```bash
 npm run setup:db
 ```
 
-### Running the Application
+### Run locally
 
-**Option 1: Run frontend and API separately**
+Run frontend and API together:
 
-Terminal 1 (API + local D1 via Wrangler):
-```bash
-npm run dev:api
-```
-
-Terminal 2 (Frontend):
-```bash
-npm run dev
-```
-
-**Option 2: Run both together**
 ```bash
 npm run dev:all
 ```
 
-The application will be available at:
-- **Frontend (this PC)**: http://localhost:3000
-- **Frontend (LAN)**: http://<PC-NAME>:3000 or http://<LAN-IP>:3000
-- **API (LAN)**: http://<PC-NAME>:5000/api or http://<LAN-IP>:5000/api
+Or run them separately:
 
-### LAN Access Notes
+```bash
+npm run dev
+npm run dev:api
+```
 
-- Dev servers bind to `0.0.0.0` so other devices on your network can connect.
-- Frontend API calls default to relative `/api` (proxied by Vite to `http://127.0.0.1:5000` in dev).
-- Optional: set `VITE_API_URL` in `.env` (for example `http://Ark-Prime:5000/api`) to bypass the proxy.
+Default local URLs:
 
-## Usage
+- Frontend: http://localhost:3000
+- API: http://localhost:5000/api
 
-1. **Create an Account**: Click "Sign Up" and register with username, email, and password
-2. **Login**: Enter your credentials to access your bookmarks
-3. **Add Bookmarks**: Click "+ Add Bookmark" to save a new link with title, URL, tags, and description
-4. **Manage Tags**: Add comma-separated tags to organize your bookmarks
-5. **Delete Bookmarks**: Click the × button on any bookmark card to remove it
+## Deployment Notes
 
-## API Endpoints
+Tagstash is designed for Cloudflare Pages + D1.
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user (requires auth)
+Production setup includes:
 
-### Admin (Super Admin only)
-- `GET /api/auth/admin/users` - List all user accounts with bookmark counts
-- `PATCH /api/auth/admin/users/:id` - Update a user's `membershipTier` (`free`/`paid`) and role (`user`/`super_admin`)
+- D1 migrations applied locally and remotely
+- Cloudflare Pages secrets for Stripe and email
+- Stripe webhook endpoint wired to `/api/billing/webhook`
 
-### Billing (Placeholders for future provider integration)
-- `POST /api/billing/webhook` - Webhook receiver that upgrades/downgrades membership based on event type
-- `POST /api/billing/checkout-session` - Placeholder for provider checkout session creation (returns 501)
-- `POST /api/billing/portal-session` - Placeholder for provider billing portal creation (returns 501)
+### Stripe-related secrets
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_MONTHLY_PRICE_ID`
+- `STRIPE_ANNUAL_PRICE_ID`
+- `APP_URL`
+
+## Key API Routes
+
+### Auth
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/auth/verify-email`
+- `POST /api/auth/resend-verification`
+
+### Admin
+
+- `GET /api/auth/admin/users`
+- `PATCH /api/auth/admin/users/:id`
+
+### Billing
+
+- `GET /api/billing/plans`
+- `GET /api/billing/status`
+- `POST /api/billing/checkout-session`
+- `POST /api/billing/portal-session`
+- `POST /api/billing/webhook`
 
 ### Bookmarks
-- `GET /api/bookmarks` - Get all user's bookmarks
-- `GET /api/bookmarks/:id` - Get single bookmark
-- `POST /api/bookmarks` - Create new bookmark
-- `PUT /api/bookmarks/:id` - Update bookmark
-- `DELETE /api/bookmarks/:id` - Delete bookmark
-- `GET /api/bookmarks/tags/all` - Get all user's tags with counts
+
+- `GET /api/bookmarks`
+- `GET /api/bookmarks/:id`
+- `POST /api/bookmarks`
+- `PUT /api/bookmarks/:id`
+- `DELETE /api/bookmarks/:id`
+- `POST /api/bookmarks/import`
+- `GET /api/bookmarks/tags/all`
 
 ## Project Structure
 
-```
+```text
 tagstash/
-├── d1/                  # D1 migrations
+├── d1/
 │   └── migrations/
-├── functions/           # Cloudflare Pages Functions API
+├── functions/
 │   └── api/
-├── public/              # Static assets
-├── src/                # Frontend code
-│   ├── api/            # API client
-│   ├── components/     # React components
-│   ├── context/        # React context (auth)
-│   ├── App.jsx         # Main app component
-│   └── main.jsx        # Entry point
-├── .dev.vars           # Local API secrets (DO NOT COMMIT)
-├── .env                # Frontend env vars (DO NOT COMMIT)
-├── package.json        # Dependencies and scripts
-└── vite.config.js      # Vite configuration
+├── public/
+├── src/
+│   ├── api/
+│   ├── components/
+│   ├── context/
+│   ├── App.jsx
+│   └── main.jsx
+├── .dev.vars
+├── package.json
+├── vite.config.js
+└── wrangler.toml
 ```
 
 ## Available Scripts
 
-- `npm run dev` - Start frontend development server
-- `npm run dev:api` - Start local Cloudflare Pages Functions API with D1
-- `npm run dev:all` - Run frontend and API concurrently
+- `npm run dev` - Run the frontend dev server
+- `npm run dev:api` - Run local Cloudflare Pages Functions and D1
+- `npm run dev:all` - Run frontend and API together
 - `npm run setup:db` - Apply local D1 migrations
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
+- `npm run build` - Create a production build
+- `npm run preview` - Preview the production build locally
 - `npm run lint` - Run ESLint
-- `npm run migrate` - Apply local D1 migrations
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-
-## Database Schema
-
-- **users** - User accounts (id, username, email, password_hash, membership_tier, role)
-- **bookmarks** - Saved bookmarks (id, user_id, title, url, description)
-- **tags** - Tag names (id, name)
-- **bookmark_tags** - Many-to-many relationship between bookmarks and tags
-
-## Security Notes
-
-- Passwords are hashed using bcryptjs before storage
-- JWT tokens expire after 7 days
-- All bookmark endpoints require authentication
-- CORS is enabled for local development
-
-## Roadmap
-
-### Upcoming Features
-- [ ] Search and filter bookmarks by title, URL, or tags
-- [ ] Tag management UI (rename, merge, delete unused tags)
-- [ ] Export bookmarks (JSON, CSV, HTML)
-- [ ] Import bookmarks from browsers
-- [ ] Bookmark collections/folders
-- [ ] Shared bookmarks between users
-- [ ] Browser extension
-- [ ] Bookmark thumbnail previews
-- [ ] Keyboard shortcuts
-
-## Contributing
-
-This is a personal project, but suggestions and feedback are welcome!
 
 ## License
 
-This project is licensed under the **Tagstash Non-Commercial License (TNCL) v1.0**. See the [LICENSE](./LICENSE) file for details.
+Tagstash is source-available under the custom **Tagstash Non-Commercial License (TNCL) v1.0**.
 
-The software may be used for personal and educational purposes only. Commercial use requires explicit written permission. For commercial licensing inquiries, contact: jd@orboro.net
+In plain English:
 
-## Author
+- You can run Tagstash yourself for free
+- You can modify it for your own non-commercial use
+- You cannot sell it
+- You cannot charge for hosting it
+- You cannot bundle it into a paid product or service
+- You cannot make money from it in any way without explicit written permission
 
-Created with ❤️ for better bookmark management
+Read the full terms in [LICENSE](./LICENSE).
+
+For commercial licensing inquiries, contact `jd@orboro.net`.

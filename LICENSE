@@ -6,6 +6,9 @@ of this software and associated documentation files (the "Software"), to use,
 copy, modify, and distribute the Software for **personal, educational, and
 non-commercial purposes only**, subject to the following conditions:
 
+You may run and self-host the Software yourself for free for personal,
+educational, hobby, archival, or other non-commercial use.
+
 1. **Non-Commercial Restriction**
    The Software may not be used, in whole or in part, for commercial purposes.
    This includes, but is not limited to:
@@ -14,6 +17,10 @@ non-commercial purposes only**, subject to the following conditions:
    * Using the Software in a paid product or service
    * Offering the Software as part of a SaaS or hosted solution
    * Using the Software in a business environment for profit
+   * Charging money for access to the Software
+   * Accepting subscription fees, service fees, or hosting fees related to the Software
+   * Bundling the Software with any offering that generates revenue
+   * Monetizing the Software directly or indirectly in any way
 
 2. **Attribution**
    Redistributions of the Software, in original or modified form, must include
