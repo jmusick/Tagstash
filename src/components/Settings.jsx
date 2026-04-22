@@ -26,6 +26,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   // Billing state
   const [plans, setPlans] = useState([]);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
   const fetchPlans = useCallback(async () => {
     try {
@@ -39,6 +40,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   const syncBillingStatus = useCallback(async () => {
     try {
       const res = await billingAPI.getStatus();
+      setSubscriptionStatus(res?.data?.subscription || null);
       if (res?.data?.user) {
         updateUser({ ...user, ...res.data.user });
       }
@@ -46,6 +48,15 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
       // If status sync fails, keep current UI state and let normal billing actions continue.
     }
   }, [updateUser, user]);
+
+  const cancellationTs = subscriptionStatus?.cancel_at || subscriptionStatus?.current_period_end || null;
+  const cancellationDateLabel = cancellationTs
+    ? new Date(cancellationTs * 1000).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })
+    : '';
 
   const handleUpgrade = async (plan) => {
     try {
@@ -764,6 +775,11 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                 <p className="billing-manage-description">
                   Manage your subscription, update payment method, or cancel via the Stripe portal.
                 </p>
+                {subscriptionStatus?.cancel_at_period_end && cancellationDateLabel && (
+                  <p className="billing-cancel-note">
+                    Your Pro plan is scheduled to end on {cancellationDateLabel}. You keep Pro access until then.
+                  </p>
+                )}
                 <button
                   type="button"
                   className="btn-primary billing-btn"

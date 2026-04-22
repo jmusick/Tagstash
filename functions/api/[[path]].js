@@ -1636,6 +1636,9 @@ async function handleBilling(request, env, segments) {
         id: subscription?.id,
         status: subscription?.status,
         cancel_at_period_end: !!subscription?.cancel_at_period_end,
+        cancel_at: subscription?.cancel_at || null,
+        canceled_at: subscription?.canceled_at || null,
+        current_period_end: subscription?.current_period_end || null,
       },
       user: refreshedUser,
     });
