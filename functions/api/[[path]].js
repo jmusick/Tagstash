@@ -43,11 +43,14 @@ const sendVerificationEmail = async (email, username, token, env) => {
   if (!env.RESEND_API_KEY) {
     throw new Error('Missing RESEND_API_KEY');
   }
+  if (!env.EMAIL_FROM) {
+    throw new Error('Missing EMAIL_FROM');
+  }
 
   const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   const verifyUrl = `${appUrl}/verify-email?token=${token}`;
   const resend = new Resend(env.RESEND_API_KEY);
-  const fromAddress = env.EMAIL_FROM || 'Tagstash <onboarding@resend.dev>';
+  const fromAddress = env.EMAIL_FROM;
   const replyTo = env.EMAIL_REPLY_TO || undefined;
   const textBody = [
     `Hi ${username},`,
@@ -1728,10 +1731,13 @@ async function handleSupport(request, env, segments) {
   if (!env.RESEND_API_KEY) {
     return jsonResponse({ error: 'Support email is not configured.' }, 503);
   }
+  if (!env.EMAIL_FROM) {
+    return jsonResponse({ error: 'Support email is not configured.' }, 503);
+  }
 
   const resend = new Resend(env.RESEND_API_KEY);
   const toAddress = env.SUPPORT_EMAIL || 'support@tagsta.sh';
-  const fromAddress = env.EMAIL_FROM || 'Tagstash <onboarding@resend.dev>';
+  const fromAddress = env.EMAIL_FROM;
 
   const textBody = [
     'New Tagstash support request',
@@ -1742,13 +1748,43 @@ async function handleSupport(request, env, segments) {
     trimmedMessage,
   ].join('\n');
 
+  const escapedEmail = normalizedEmail
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const escapedMessage = trimmedMessage
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
   const htmlBody = `
-<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
-  <h2 style="margin:0 0 12px;">New Tagstash support request</h2>
-  <p><strong>Account email:</strong> ${normalizedEmail}</p>
-  <p><strong>Message:</strong></p>
-  <pre style="white-space: pre-wrap; font-family: inherit; background: #f3f4f6; padding: 12px; border-radius: 8px;">${trimmedMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-</div>`;
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Tagstash support request</title>
+  </head>
+  <body style="margin:0;padding:24px;background-color:#f3f4f6;color:#111827;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:700px;margin:0 auto;border-collapse:collapse;">
+      <tr>
+        <td style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;color:#111827;">
+          <h2 style="margin:0 0 12px 0;color:#111827;font-size:24px;line-height:1.25;">New Tagstash support request</h2>
+          <p style="margin:0 0 12px 0;color:#111827;">
+            <strong>Account email:</strong>
+            <a href="mailto:${escapedEmail}" style="color:#0f172a;text-decoration:underline;">${escapedEmail}</a>
+          </p>
+          <p style="margin:0 0 8px 0;color:#111827;"><strong>Message:</strong></p>
+          <div style="white-space:pre-wrap;background-color:#f9fafb;border:1px solid #e5e7eb;padding:12px;border-radius:8px;color:#111827;">${escapedMessage}</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 
   const { error } = await resend.emails.send({
     from: fromAddress,
