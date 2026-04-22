@@ -97,11 +97,14 @@ export const bookmarksAPI = {
 };
 
 export const billingAPI = {
-  createCheckoutSession: (payload = {}) =>
-    api.post('/billing/checkout-session', payload),
+  getPlans: () =>
+    api.get('/billing/plans'),
 
-  createPortalSession: (payload = {}) =>
-    api.post('/billing/portal-session', payload),
+  createCheckoutSession: (plan) =>
+    api.post('/billing/checkout-session', { plan }),
+
+  createPortalSession: () =>
+    api.post('/billing/portal-session'),
 };
 
 export default api;

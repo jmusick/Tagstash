@@ -61,6 +61,19 @@ function App() {
   const [tagDraft, setTagDraft] = useState('')
   const [editTagDraft, setEditTagDraft] = useState('')
   const [tagsRefreshKey, setTagsRefreshKey] = useState(0)
+  const [billingMessage, setBillingMessage] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('billing') || ''
+  })
+
+  // Clear billing query param from URL without reload
+  useEffect(() => {
+    if (billingMessage) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('billing')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [billingMessage])
 
   const membershipTier = user?.membership_tier || 'free'
   const isPaidMember = membershipTier === 'paid'
@@ -279,7 +292,7 @@ function App() {
   const handleBaseUrl = () => {
     try {
       const u = new URL(formData.url)
-      setFormData(prev => ({ ...prev, url: u.origin + '/' }))
+      setFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
@@ -293,7 +306,7 @@ function App() {
   const handleEditBaseUrl = () => {
     try {
       const u = new URL(editFormData.url)
-      setEditFormData(prev => ({ ...prev, url: u.origin + '/' }))
+      setEditFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
@@ -627,6 +640,22 @@ function App() {
       </header>
 
       <main className="app-main">
+        {billingMessage === 'success' && (
+          <div className="billing-banner billing-banner--success">
+            <span>Your subscription is now active — welcome to Pro!</span>
+            <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {billingMessage === 'cancelled' && (
+          <div className="billing-banner billing-banner--info">
+            <span>Checkout cancelled. You can upgrade anytime from Settings.</span>
+            <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
+              <X size={14} />
+            </button>
+          </div>
+        )}
         <div className="main-content">
           <div className="toolbar">
             <div className="sort-control">
@@ -1016,7 +1045,7 @@ function App() {
                   <span key={tag} className="active-tag-filter-item">
                     <span>{tag}</span>
                     <button type="button" onClick={() => handleTagRemove(tag)} aria-label={`Remove ${tag} from tag query`}>
-                      <X size={12} />
+                      <X size={14} />
                     </button>
                   </span>
                 ))}

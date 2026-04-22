@@ -461,64 +461,121 @@ const listBookmarks = async (db, userId) => {
   return attachTagsToBookmarks(db, userId, bookmarks);
 };
 
-const processBillingWebhookEvent = async (db, event) => {
-  const eventType = event?.type;
-  const typeToTier = {
-    subscription_activated: MEMBERSHIP_TIERS.PAID,
-    payment_succeeded: MEMBERSHIP_TIERS.PAID,
-    subscription_canceled: MEMBERSHIP_TIERS.FREE,
-    payment_failed: MEMBERSHIP_TIERS.FREE,
+// --- Stripe helpers ---
+
+const stripeRequest = async (method, path, params, env) => {
+  const url = `https://api.stripe.com/v1${path}`;
+  const auth = btoa(`${env.STRIPE_SECRET_KEY}:`);
+  const options = {
+    method,
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
   };
+  if (params) {
+    options.body = new URLSearchParams(params).toString();
+  }
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Stripe API error: ${response.status}`);
+  }
+  return data;
+};
 
-  const nextTier = typeToTier[eventType];
-  if (!eventType || !nextTier) {
-    return { handled: false, reason: 'Unsupported or missing billing event type' };
+const verifyStripeSignature = async (rawBody, sigHeader, secret) => {
+  if (!sigHeader || !secret) return false;
+  const parts = {};
+  for (const part of sigHeader.split(',')) {
+    const idx = part.indexOf('=');
+    if (idx > 0) parts[part.slice(0, idx)] = part.slice(idx + 1);
+  }
+  const timestamp = parts.t;
+  const signature = parts.v1;
+  if (!timestamp || !signature) return false;
+  // Reject webhooks older than 5 minutes to prevent replay attacks
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - parseInt(timestamp, 10)) > 300) return false;
+  const payload = `${timestamp}.${rawBody}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const expected = Array.from(new Uint8Array(mac))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return expected === signature;
+};
+
+const processStripeEvent = async (db, event) => {
+  const { type, data } = event;
+  const obj = data?.object;
+
+  if (type === 'checkout.session.completed') {
+    const customerId = obj?.customer;
+    const subscriptionId = obj?.subscription;
+    const userId = Number(obj?.metadata?.userId);
+    const email = normalizeEmail(obj?.customer_email || obj?.customer_details?.email);
+    let user = null;
+    if (Number.isInteger(userId) && userId > 0) {
+      user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+    }
+    if (!user && email) {
+      user = await db
+        .prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)')
+        .bind(email)
+        .first();
+    }
+    if (!user) return { handled: false, reason: 'No matching user' };
+    await db
+      .prepare(
+        'UPDATE users SET membership_tier = ?, stripe_customer_id = ?, stripe_subscription_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      )
+      .bind(MEMBERSHIP_TIERS.PAID, customerId, subscriptionId, user.id)
+      .run();
+    return { handled: true, action: 'membership_upgraded', eventType: type };
   }
 
-  const userId = Number(event?.data?.userId);
-  const email = normalizeEmail(event?.data?.email);
-
-  let user = null;
-  if (Number.isInteger(userId) && userId > 0) {
-    user = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
-      .bind(userId)
+  if (type === 'customer.subscription.deleted') {
+    const customerId = obj?.customer;
+    const user = await db
+      .prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+      .bind(customerId)
       .first();
+    if (!user) return { handled: false, reason: 'No matching user for customer' };
+    await db
+      .prepare(
+        'UPDATE users SET membership_tier = ?, stripe_subscription_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      )
+      .bind(MEMBERSHIP_TIERS.FREE, user.id)
+      .run();
+    return { handled: true, action: 'membership_downgraded', eventType: type };
   }
 
-  if (!user && email) {
-    user = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE LOWER(email) = LOWER(?)')
-      .bind(email)
+  if (type === 'customer.subscription.updated') {
+    const customerId = obj?.customer;
+    const status = obj?.status;
+    const user = await db
+      .prepare('SELECT * FROM users WHERE stripe_customer_id = ?')
+      .bind(customerId)
       .first();
+    if (!user) return { handled: false, reason: 'No matching user for customer' };
+    const tier = ['active', 'trialing'].includes(status) ? MEMBERSHIP_TIERS.PAID : MEMBERSHIP_TIERS.FREE;
+    if (user.membership_tier !== tier) {
+      await db
+        .prepare('UPDATE users SET membership_tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .bind(tier, user.id)
+        .run();
+    }
+    return { handled: true, action: 'subscription_status_synced', status, eventType: type };
   }
 
-  if (!user) {
-    return { handled: false, reason: 'No matching user for billing event' };
-  }
-
-  if (user.membership_tier === nextTier) {
-    return { handled: true, action: 'noop', user, eventType };
-  }
-
-  await db
-    .prepare('UPDATE users SET membership_tier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .bind(nextTier, user.id)
-    .run();
-
-  const updatedUser = await db
-    .prepare('SELECT id, username, email, membership_tier, role, updated_at FROM users WHERE id = ?')
-    .bind(user.id)
-    .first();
-
-  return {
-    handled: true,
-    action: 'membership_updated',
-    eventType,
-    previousTier: user.membership_tier,
-    nextTier,
-    user: updatedUser,
-  };
+  return { handled: false, reason: `Unhandled event type: ${type}` };
 };
 
 async function handleAuth(request, env, segments) {
@@ -1441,46 +1498,97 @@ async function handleBilling(request, env, segments) {
   const db = env.DB;
 
   if (request.method === 'POST' && segments[1] === 'webhook') {
-    const expectedSecret = env.BILLING_WEBHOOK_SECRET;
-    const providedSecret = request.headers.get('x-tagstash-webhook-secret');
-
-    if (expectedSecret && providedSecret !== expectedSecret) {
-      return jsonResponse({ error: 'Invalid webhook secret' }, 401);
+    if (!env.STRIPE_WEBHOOK_SECRET) {
+      return jsonResponse({ error: 'Webhook secret not configured' }, 500);
     }
-
-    const event = await parseBody(request);
-    const result = await processBillingWebhookEvent(db, event);
+    const rawBody = await request.text();
+    const sigHeader = request.headers.get('stripe-signature');
+    const valid = await verifyStripeSignature(rawBody, sigHeader, env.STRIPE_WEBHOOK_SECRET);
+    if (!valid) {
+      return jsonResponse({ error: 'Invalid webhook signature' }, 400);
+    }
+    let event;
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON body' }, 400);
+    }
+    const result = await processStripeEvent(db, event);
     return jsonResponse({ received: true, result });
   }
 
   if (request.method === 'POST' && segments[1] === 'checkout-session') {
     const auth = await requireAuth(request, env);
     if (auth.error) return auth.error;
-
-    return jsonResponse(
-      {
-        error: 'Billing provider not configured yet',
-        message:
-          'Create checkout session is a placeholder until payment provider integration is added',
-        suggestedProviderFields: ['providerCustomerId', 'providerPriceId', 'successUrl', 'cancelUrl'],
-      },
-      501
-    );
+    if (!env.STRIPE_SECRET_KEY) {
+      return jsonResponse({ error: 'Stripe is not configured' }, 503);
+    }
+    const { plan } = await parseBody(request);
+    const priceMap = {
+      monthly: env.STRIPE_MONTHLY_PRICE_ID,
+      annual: env.STRIPE_ANNUAL_PRICE_ID,
+    };
+    const priceId = priceMap[plan];
+    if (!priceId) {
+      return jsonResponse({ error: 'Invalid or unavailable plan' }, 400);
+    }
+    const dbUser = await db.prepare('SELECT * FROM users WHERE id = ?').bind(auth.user.id).first();
+    if (!dbUser) return jsonResponse({ error: 'User not found' }, 404);
+    if (dbUser.membership_tier === MEMBERSHIP_TIERS.PAID) {
+      return jsonResponse({ error: 'Already on a paid plan' }, 400);
+    }
+    let customerId = dbUser.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripeRequest('POST', '/customers', {
+        email: dbUser.email,
+        name: dbUser.username,
+        'metadata[userId]': String(dbUser.id),
+      }, env);
+      customerId = customer.id;
+      await db
+        .prepare('UPDATE users SET stripe_customer_id = ? WHERE id = ?')
+        .bind(customerId, dbUser.id)
+        .run();
+    }
+    const appUrl = (env.APP_URL || 'https://tagsta.sh').replace(/\/$/, '');
+    const session = await stripeRequest('POST', '/checkout/sessions', {
+      customer: customerId,
+      mode: 'subscription',
+      'line_items[0][price]': priceId,
+      'line_items[0][quantity]': '1',
+      success_url: `${appUrl}/?billing=success`,
+      cancel_url: `${appUrl}/?billing=cancelled`,
+      'metadata[userId]': String(dbUser.id),
+    }, env);
+    return jsonResponse({ url: session.url });
   }
 
   if (request.method === 'POST' && segments[1] === 'portal-session') {
     const auth = await requireAuth(request, env);
     if (auth.error) return auth.error;
+    if (!env.STRIPE_SECRET_KEY) {
+      return jsonResponse({ error: 'Stripe is not configured' }, 503);
+    }
+    const dbUser = await db.prepare('SELECT * FROM users WHERE id = ?').bind(auth.user.id).first();
+    if (!dbUser) return jsonResponse({ error: 'User not found' }, 404);
+    if (!dbUser.stripe_customer_id) {
+      return jsonResponse({ error: 'No billing account found' }, 404);
+    }
+    const appUrl = (env.APP_URL || 'https://tagsta.sh').replace(/\/$/, '');
+    const session = await stripeRequest('POST', '/billing_portal/sessions', {
+      customer: dbUser.stripe_customer_id,
+      return_url: `${appUrl}/settings`,
+    }, env);
+    return jsonResponse({ url: session.url });
+  }
 
-    return jsonResponse(
-      {
-        error: 'Billing provider not configured yet',
-        message:
-          'Create billing portal session is a placeholder until payment provider integration is added',
-        suggestedProviderFields: ['providerCustomerId', 'returnUrl'],
-      },
-      501
-    );
+  if (request.method === 'GET' && segments[1] === 'plans') {
+    return jsonResponse({
+      plans: [
+        { id: 'monthly', available: !!env.STRIPE_MONTHLY_PRICE_ID },
+        { id: 'annual', available: !!env.STRIPE_ANNUAL_PRICE_ID },
+      ],
+    });
   }
 
   return jsonResponse({ error: 'Route not found' }, 404);

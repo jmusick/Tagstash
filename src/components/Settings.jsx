@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../api/api';
-import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { authAPI, billingAPI } from '../api/api';
+import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2, CreditCard, Zap, CheckCircle } from 'lucide-react';
 import Import from './Import';
 import './Settings.css';
 
@@ -21,6 +21,43 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   const [generatedApiKey, setGeneratedApiKey] = useState('');
   const [showRevokedKeys, setShowRevokedKeys] = useState(false);
   const [revealedApiKeys, setRevealedApiKeys] = useState({});
+
+  // Billing state
+  const [plans, setPlans] = useState([]);
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const fetchPlans = useCallback(async () => {
+    try {
+      const res = await billingAPI.getPlans();
+      setPlans(res.data.plans);
+    } catch {
+      // Stripe not configured — leave plans empty
+    }
+  }, []);
+
+  const handleUpgrade = async (plan) => {
+    try {
+      setBillingLoading(true);
+      const res = await billingAPI.createCheckoutSession(plan);
+      window.location.href = res.data.url;
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to start checkout');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      setBillingLoading(true);
+      const res = await billingAPI.createPortalSession();
+      window.location.href = res.data.url;
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to open billing portal');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
 
   // Username form state
   const [usernameForm, setUsernameForm] = useState({
@@ -395,6 +432,17 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           </button>
           */}
           <button
+            className={`tab-btn ${activeTab === 'billing' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('billing');
+              setError('');
+              setSuccess('');
+              fetchPlans();
+            }}
+          >
+            Billing
+          </button>
+          <button
             className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('import');
@@ -678,6 +726,67 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'billing' && (
+          <div className="settings-billing-tab">
+            <div className="billing-current-plan">
+              <div className="billing-plan-badge">
+                {user?.membershipTier === 'paid' ? (
+                  <><Zap size={16} /> Pro</>
+                ) : (
+                  <><CreditCard size={16} /> Free</>
+                )}
+              </div>
+              <p className="billing-plan-label">
+                {user?.membershipTier === 'paid'
+                  ? 'You are on the Pro plan.'
+                  : `You are on the Free plan (up to 50 bookmarks).`}
+              </p>
+            </div>
+
+            {user?.membershipTier === 'paid' ? (
+              <div className="billing-manage">
+                <p className="billing-manage-description">
+                  Manage your subscription, update payment method, or cancel via the Stripe portal.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary billing-btn"
+                  onClick={handleManageSubscription}
+                  disabled={billingLoading}
+                >
+                  {billingLoading ? 'Loading...' : 'Manage Subscription'}
+                </button>
+              </div>
+            ) : (
+              <div className="billing-upgrade">
+                <p className="billing-upgrade-description">
+                  Upgrade to Pro for unlimited bookmarks.
+                </p>
+                <div className="billing-plan-options">
+                  {plans.filter((p) => p.available).length === 0 ? (
+                    <p className="billing-unavailable">Paid plans are not available on this instance.</p>
+                  ) : (
+                    plans
+                      .filter((p) => p.available)
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="billing-plan-option"
+                          onClick={() => handleUpgrade(p.id)}
+                          disabled={billingLoading}
+                        >
+                          <CheckCircle size={16} />
+                          <span>{p.id === 'monthly' ? 'Monthly' : 'Annual'}</span>
+                        </button>
+                      ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

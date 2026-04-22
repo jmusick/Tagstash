@@ -100,7 +100,7 @@ function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) 
                     aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
                     disabled={isSelected}
                   >
-                    <Plus size={11} />
+                    <Plus size={20} />
                   </button>
                 </span>
                 <span className="tag-name">{tag.name}</span>

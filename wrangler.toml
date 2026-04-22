@@ -7,3 +7,10 @@ binding = "DB"
 database_name = "tagstash-db"
 database_id = "8ed8b994-49cd-42aa-9175-90c98df15307"
 migrations_dir = "d1/migrations"
+
+# Secrets — set with: wrangler pages secret put SECRET_NAME
+# STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
+# STRIPE_WEBHOOK_SECRET      — Stripe webhook signing secret (whsec_...)
+# STRIPE_MONTHLY_PRICE_ID    — Stripe Price ID for monthly plan (price_...)
+# STRIPE_ANNUAL_PRICE_ID     — Stripe Price ID for annual plan (price_...)
+# APP_URL                    — Public app URL e.g. https://tagsta.sh (used for redirect URLs)
