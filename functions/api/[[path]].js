@@ -540,6 +540,18 @@ const createStripeCustomer = async (dbUser, env) =>
     env
   );
 
+const updateStripeCustomer = async (customerId, dbUser, env) =>
+  stripeRequest(
+    'POST',
+    `/customers/${customerId}`,
+    {
+      email: dbUser.email,
+      name: dbUser.username,
+      'metadata[userId]': String(dbUser.id),
+    },
+    env
+  );
+
 const saveStripeCustomerId = async (db, userId, customerId) => {
   await db
     .prepare('UPDATE users SET stripe_customer_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
@@ -1614,6 +1626,8 @@ async function handleBilling(request, env, segments) {
       const customer = await createStripeCustomer(dbUser, env);
       customerId = customer.id;
       await saveStripeCustomerId(db, dbUser.id, customerId);
+    } else {
+      await updateStripeCustomer(customerId, dbUser, env);
     }
     const appUrl = (env.APP_URL || 'https://tagsta.sh').replace(/\/$/, '');
     const checkoutParams = {
