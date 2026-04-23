@@ -27,6 +27,20 @@ const normalizeBookmarkUrl = (value) => {
   return cleaned ? `https://${cleaned}` : ''
 }
 
+const decodeHtmlEntities = (value) => {
+  if (typeof value !== 'string' || !value) {
+    return value || ''
+  }
+
+  if (typeof document === 'undefined') {
+    return value
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = value
+  return textarea.value
+}
+
 const ActionInfo = ({ text }) => (
   <span className="action-info-inline" aria-hidden="true">
     <Info size={11} />
@@ -201,9 +215,9 @@ function App() {
         : ''
 
       const searchable = [
-        bookmark.title || '',
+        decodeHtmlEntities(bookmark.title || ''),
         bookmark.url || '',
-        bookmark.description || '',
+        decodeHtmlEntities(bookmark.description || ''),
         tagsText,
       ]
         .join(' ')
@@ -476,9 +490,9 @@ function App() {
       ? bookmark.tags.map(tag => tag.name).join(', ')
       : ''
     setEditFormData({
-      title: bookmark.title || '',
+      title: decodeHtmlEntities(bookmark.title || ''),
       url: bookmark.url || '',
-      description: bookmark.description || '',
+      description: decodeHtmlEntities(bookmark.description || ''),
       tags: tagsString,
     })
     setEditTagDraft('')
@@ -1004,6 +1018,8 @@ function App() {
                 const faviconSrc = isEditing
                   ? (getFaviconPreviewUrl(editFormData.url) || bookmark.favicon_url)
                   : bookmark.favicon_url
+                const displayTitle = decodeHtmlEntities(bookmark.title || '')
+                const displayDescription = decodeHtmlEntities(bookmark.description || '')
 
                 return (
                 <div key={bookmark.id} className="bookmark-card">
@@ -1016,7 +1032,7 @@ function App() {
                         onError={(e) => e.target.style.display = 'none'}
                       />
                     )}
-                    <h3>{bookmark.title}</h3>
+                    <h3>{displayTitle}</h3>
                     <div className="bookmark-actions">
                       <button
                         type="button"
@@ -1159,8 +1175,8 @@ function App() {
                       <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
                         {bookmark.url}
                       </a>
-                      {bookmark.description && (
-                        <p className="bookmark-description">{bookmark.description}</p>
+                      {displayDescription && (
+                        <p className="bookmark-description">{displayDescription}</p>
                       )}
                       <div className="tags">
                         {bookmark.tags && bookmark.tags.length > 0 && bookmark.tags.map((tag) => (
