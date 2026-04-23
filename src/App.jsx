@@ -61,6 +61,8 @@ function App() {
   const [selectedTags, setSelectedTags] = useState([])
   const [sortBy, setSortBy] = useState('date')
   const [sortDirection, setSortDirection] = useState('desc')
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [currentPage, setCurrentPage] = useState(1)
   const [fetchingDescription, setFetchingDescription] = useState(false)
   const [lastFetchedDescriptionUrl, setLastFetchedDescriptionUrl] = useState('')
   const [editingBookmarkId, setEditingBookmarkId] = useState(null)
@@ -219,6 +221,23 @@ function App() {
       return matchesSearch && matchesTag
     })
   }, [sortedBookmarks, searchTerm, selectedTags])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedTags, sortBy, sortDirection, itemsPerPage])
+
+  const totalPages = Math.max(1, Math.ceil(filteredBookmarks.length / itemsPerPage))
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const paginatedBookmarks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    return filteredBookmarks.slice(start, start + itemsPerPage)
+  }, [filteredBookmarks, currentPage, itemsPerPage])
 
   const handleTagToggle = (tagName) => {
     const normalized = tagName?.trim().toLowerCase()
@@ -932,6 +951,42 @@ function App() {
         )}
 
         <div className="bookmarks-section">
+          {filteredBookmarks.length > 0 && (
+            <div className="pagination-toolbar">
+              <div className="pagination-page-size">
+                <label htmlFor="itemsPerPage">Show</label>
+                <select
+                  id="itemsPerPage"
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={40}>40</option>
+                  <option value={80}>80</option>
+                </select>
+              </div>
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-status">Page {currentPage} of {totalPages}</span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
           {loading ? (
             <div className="loading-message">Loading bookmarks...</div>
           ) : filteredBookmarks.length === 0 ? (
@@ -944,7 +999,7 @@ function App() {
             </div>
           ) : (
             <div className="bookmarks-grid">
-              {filteredBookmarks.map((bookmark) => {
+              {paginatedBookmarks.map((bookmark) => {
                 const isEditing = editingBookmarkId === bookmark.id
                 const faviconSrc = isEditing
                   ? (getFaviconPreviewUrl(editFormData.url) || bookmark.favicon_url)
