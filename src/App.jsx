@@ -369,7 +369,7 @@ function App() {
       return
     }
 
-    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'
+    const isDelimiter = e.key === ',' || e.key === ' ' || e.key === 'Spacebar'
     if (!isDelimiter || !tagDraft.trim()) return
 
     e.preventDefault()
@@ -388,7 +388,13 @@ function App() {
       return
     }
 
-    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSaveEdit(editingBookmarkId)
+      return
+    }
+
+    const isDelimiter = e.key === ',' || e.key === ' ' || e.key === 'Spacebar'
     if (!isDelimiter || !editTagDraft.trim()) return
 
     e.preventDefault()
@@ -930,7 +936,7 @@ function App() {
                     Press Tab to use <strong>{addTagSuggestion}</strong>
                   </div>
                 )}
-                <small>Press Comma, Space, or Enter to lock in a new tag</small>
+                <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
               </div>
               <div className="form-group">
                 <div className="field-header">
@@ -1205,7 +1211,7 @@ function App() {
                             Press Tab to use <strong>{editTagSuggestion}</strong>
                           </div>
                         )}
-                        <small>Press Comma, Space, or Enter to lock in a new tag</small>
+                        <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
                       </div>
                       <div className="bookmark-edit-actions">
                         <button
