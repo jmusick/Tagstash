@@ -253,6 +253,16 @@ function App() {
     return filteredBookmarks.slice(start, start + itemsPerPage)
   }, [filteredBookmarks, currentPage, itemsPerPage])
 
+  const availableTagNames = useMemo(() => {
+    const tagNames = bookmarks.flatMap((bookmark) => (
+      Array.isArray(bookmark.tags)
+        ? bookmark.tags.map((tag) => tag.name?.trim().toLowerCase()).filter(Boolean)
+        : []
+    ))
+
+    return Array.from(new Set(tagNames)).sort((left, right) => left.localeCompare(right))
+  }, [bookmarks])
+
   const handleTagToggle = (tagName) => {
     const normalized = tagName?.trim().toLowerCase()
     if (!normalized) return
@@ -295,8 +305,8 @@ function App() {
     return { tags: Array.from(new Set(allTags)), invalidTag: null }
   }
 
-  const lockAddDraftTags = () => {
-    const { tags, invalidTag } = buildTagList(formData.tags, tagDraft)
+  const lockAddDraftTags = (draft = tagDraft) => {
+    const { tags, invalidTag } = buildTagList(formData.tags, draft)
     if (invalidTag) {
       setError(`Tag "${invalidTag}" must be a single word with no spaces`)
       return false
@@ -306,8 +316,8 @@ function App() {
     return true
   }
 
-  const lockEditDraftTags = () => {
-    const { tags, invalidTag } = buildTagList(editFormData.tags, editTagDraft)
+  const lockEditDraftTags = (draft = editTagDraft) => {
+    const { tags, invalidTag } = buildTagList(editFormData.tags, draft)
     if (invalidTag) {
       setError(`Tag "${invalidTag}" must be a single word with no spaces`)
       return false
@@ -327,25 +337,61 @@ function App() {
     setEditFormData((prev) => ({ ...prev, tags: joinTags(nextTags) }))
   }
 
+  const getSuggestedTag = (draft, lockedTags) => {
+    const normalizedDraft = draft.trim().toLowerCase()
+    if (!normalizedDraft) return null
+
+    const lockedTagSet = new Set(lockedTags)
+
+    const exactMatch = availableTagNames.find((tag) => (
+      tag === normalizedDraft && !lockedTagSet.has(tag)
+    ))
+
+    if (exactMatch) {
+      return exactMatch
+    }
+
+    return availableTagNames.find((tag) => (
+      tag.startsWith(normalizedDraft) && !lockedTagSet.has(tag)
+    )) || null
+  }
+
+  const addTagSuggestion = getSuggestedTag(tagDraft, parseTags(formData.tags))
+  const editTagSuggestion = getSuggestedTag(editTagDraft, parseTags(editFormData.tags))
+
   const handleAddTagDraftKeyDown = (e) => {
-    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === 'Spacebar'
+    if (e.key === 'Tab') {
+      if (!addTagSuggestion) return
+
+      e.preventDefault()
+      setError('')
+      lockAddDraftTags(addTagSuggestion)
+      return
+    }
+
+    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'
     if (!isDelimiter || !tagDraft.trim()) return
 
-    if (e.key !== 'Tab') {
-      e.preventDefault()
-    }
+    e.preventDefault()
 
     setError('')
     lockAddDraftTags()
   }
 
   const handleEditTagDraftKeyDown = (e) => {
-    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === 'Spacebar'
+    if (e.key === 'Tab') {
+      if (!editTagSuggestion) return
+
+      e.preventDefault()
+      setError('')
+      lockEditDraftTags(editTagSuggestion)
+      return
+    }
+
+    const isDelimiter = e.key === ',' || e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'
     if (!isDelimiter || !editTagDraft.trim()) return
 
-    if (e.key !== 'Tab') {
-      e.preventDefault()
-    }
+    e.preventDefault()
 
     setError('')
     lockEditDraftTags()
@@ -879,7 +925,12 @@ function App() {
                     placeholder="Type tag, press comma"
                   />
                 </div>
-                <small>Press Comma, Space, Enter, or Tab to lock in a tag</small>
+                {addTagSuggestion && (
+                  <div className="tag-input-suggestion" aria-live="polite">
+                    Press Tab to use <strong>{addTagSuggestion}</strong>
+                  </div>
+                )}
+                <small>Press Comma, Space, or Enter to lock in a new tag</small>
               </div>
               <div className="form-group">
                 <div className="field-header">
@@ -1149,7 +1200,12 @@ function App() {
                             placeholder="Type tag, press comma"
                           />
                         </div>
-                        <small>Press Comma, Space, Enter, or Tab to lock in a tag</small>
+                        {editTagSuggestion && (
+                          <div className="tag-input-suggestion" aria-live="polite">
+                            Press Tab to use <strong>{editTagSuggestion}</strong>
+                          </div>
+                        )}
+                        <small>Press Comma, Space, or Enter to lock in a new tag</small>
                       </div>
                       <div className="bookmark-edit-actions">
                         <button
