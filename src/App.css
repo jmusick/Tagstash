@@ -117,7 +117,7 @@
 
 .app-main {
   display: grid;
-  grid-template-columns: 3fr 380px;
+  grid-template-columns: 3fr 460px;
   gap: 2rem;
   align-items: start;
 }
