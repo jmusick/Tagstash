@@ -345,6 +345,25 @@ const requireSuperAdmin = async (db, authUser, env) => {
   return { adminUser };
 };
 
+const usersTableHasColumn = async (db, columnName) => {
+  const result = await db.prepare('PRAGMA table_info(users)').all();
+  return (result.results || []).some((column) => column.name === columnName);
+};
+
+const bookmarksTableHasColumn = async (db, columnName) => {
+  const result = await db.prepare('PRAGMA table_info(bookmarks)').all();
+  return (result.results || []).some((column) => column.name === columnName);
+};
+
+const tableExists = async (db, tableName) => {
+  const result = await db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .bind(tableName)
+    .first();
+
+  return Boolean(result);
+};
+
 const getUserPlanStatus = async (db, userId) => {
   const user = await db
     .prepare('SELECT membership_tier FROM users WHERE id = ?')
@@ -512,12 +531,20 @@ const fetchSiteMetadata = async (url) => {
 };
 
 const listBookmarks = async (db, userId) => {
+  const hasIsFavoriteColumn = await bookmarksTableHasColumn(db, 'is_favorite');
+  const bookmarksQuery = hasIsFavoriteColumn
+    ? 'SELECT * FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC'
+    : 'SELECT *, 0 AS is_favorite FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC';
+
   const bookmarksResult = await db
-    .prepare('SELECT * FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC')
+    .prepare(bookmarksQuery)
     .bind(userId)
     .all();
 
-  const bookmarks = bookmarksResult.results || [];
+  const bookmarks = (bookmarksResult.results || []).map((bookmark) => ({
+    ...bookmark,
+    is_favorite: Number(bookmark.is_favorite || 0),
+  }));
 
   for (const bookmark of bookmarks) {
     if (!bookmark.favicon_url) {
@@ -786,6 +813,19 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Invalid email or password' }, 401);
     }
 
+    const lastLoginAt = new Date().toISOString();
+    const hasLastLoginAtColumn = await usersTableHasColumn(db, 'last_login_at');
+    const updateStatement = hasLastLoginAtColumn
+      ? 'UPDATE users SET last_login_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      : 'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+
+    const updateQuery = db.prepare(updateStatement);
+    if (hasLastLoginAtColumn) {
+      await updateQuery.bind(lastLoginAt, user.id).run();
+    } else {
+      await updateQuery.bind(user.id).run();
+    }
+
     const token = await signUserToken(user, env);
 
     return jsonResponse({
@@ -797,6 +837,7 @@ async function handleAuth(request, env, segments) {
         email: user.email,
         membership_tier: user.membership_tier,
         role: user.role,
+        last_login_at: lastLoginAt,
       },
     });
   }
@@ -1193,9 +1234,12 @@ async function handleAuth(request, env, segments) {
     const access = await requireSuperAdmin(db, auth.user, env);
     if (access.error) return access.error;
 
+    const hasLastLoginAtColumn = await usersTableHasColumn(db, 'last_login_at');
+    const lastLoginSelect = hasLastLoginAtColumn ? 'u.last_login_at' : 'NULL AS last_login_at';
+
     const result = await db
       .prepare(
-        `SELECT u.id, u.username, u.email, u.membership_tier, u.role, u.created_at, u.updated_at,
+        `SELECT u.id, u.username, u.email, u.membership_tier, u.role, u.created_at, u.updated_at, ${lastLoginSelect},
                 COUNT(b.id) AS bookmark_count
          FROM users u
          LEFT JOIN bookmarks b ON b.user_id = u.id
@@ -1281,6 +1325,46 @@ async function handleAuth(request, env, segments) {
       .first();
 
     return jsonResponse({ message: 'User access updated successfully', user: updatedUser });
+  }
+
+  if (
+    request.method === 'DELETE' &&
+    segments[1] === 'admin' &&
+    segments[2] === 'users' &&
+    segments[3]
+  ) {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+
+    const access = await requireSuperAdmin(db, auth.user, env);
+    if (access.error) return access.error;
+
+    const targetId = Number(segments[3]);
+
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return jsonResponse({ error: 'Invalid user id' }, 400);
+    }
+
+    if (targetId === auth.user.id) {
+      return jsonResponse({ error: 'You cannot delete your own account from this panel' }, 400);
+    }
+
+    const targetUser = await db
+      .prepare('SELECT id, email, role FROM users WHERE id = ?')
+      .bind(targetId)
+      .first();
+
+    if (!targetUser) {
+      return jsonResponse({ error: 'User not found' }, 404);
+    }
+
+    if (targetUser.role === USER_ROLES.SUPER_ADMIN || isSuperAdminEmail(targetUser.email, env)) {
+      return jsonResponse({ error: 'Configured super admin account cannot be deleted' }, 400);
+    }
+
+    await db.prepare('DELETE FROM users WHERE id = ?').bind(targetId).run();
+
+    return jsonResponse({ message: 'User account and bookmarks deleted successfully' });
   }
 
   return jsonResponse({ error: 'Route not found' }, 404);
@@ -1449,17 +1533,27 @@ async function handleBookmarks(request, env, segments) {
   }
 
   if (request.method === 'GET' && segments[1] === 'tags' && segments[2] === 'all') {
+    const hasFavoriteTagsTable = await tableExists(db, 'favorite_tags');
+    const favoriteSelect = hasFavoriteTagsTable
+      ? 'CASE WHEN ft.tag_id IS NULL THEN 0 ELSE 1 END AS is_favorite'
+      : '0 AS is_favorite';
+    const favoriteJoin = hasFavoriteTagsTable
+      ? 'LEFT JOIN favorite_tags ft ON ft.tag_id = t.id AND ft.user_id = ?'
+      : '';
+    const tagBindings = hasFavoriteTagsTable ? [auth.user.id, auth.user.id] : [auth.user.id];
+
     const result = await db
       .prepare(
-        `SELECT t.id, t.name, COUNT(bt.bookmark_id) AS count
+        `SELECT t.id, t.name, COUNT(bt.bookmark_id) AS count, ${favoriteSelect}
          FROM tags t
          INNER JOIN bookmark_tags bt ON t.id = bt.tag_id
          INNER JOIN bookmarks b ON bt.bookmark_id = b.id
+         ${favoriteJoin}
          WHERE b.user_id = ?
-         GROUP BY t.id, t.name
-         ORDER BY count DESC, t.name ASC`
+         GROUP BY t.id, t.name, ft.tag_id
+         ORDER BY is_favorite DESC, count DESC, t.name ASC`
       )
-      .bind(auth.user.id)
+      .bind(...tagBindings)
       .all();
 
     const tags = (result.results || []).map((t) => ({
@@ -1468,6 +1562,92 @@ async function handleBookmarks(request, env, segments) {
     }));
 
     return jsonResponse({ tags });
+  }
+
+  if (request.method === 'POST' && segments[1] && segments[2] === 'favorite') {
+    const bookmarkId = Number(segments[1]);
+
+    if (!Number.isInteger(bookmarkId) || bookmarkId <= 0) {
+      return jsonResponse({ error: 'Invalid bookmark id' }, 400);
+    }
+
+    const hasIsFavoriteColumn = await bookmarksTableHasColumn(db, 'is_favorite');
+    if (!hasIsFavoriteColumn) {
+      return jsonResponse({ error: 'Bookmark favorites are not configured yet' }, 503);
+    }
+
+    const bookmark = await db
+      .prepare('SELECT id, is_favorite FROM bookmarks WHERE id = ? AND user_id = ?')
+      .bind(bookmarkId, auth.user.id)
+      .first();
+
+    if (!bookmark) {
+      return jsonResponse({ error: 'Bookmark not found' }, 404);
+    }
+
+    const nextFavorite = Number(bookmark.is_favorite || 0) ? 0 : 1;
+
+    await db
+      .prepare('UPDATE bookmarks SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?')
+      .bind(nextFavorite, bookmarkId, auth.user.id)
+      .run();
+
+    return jsonResponse({
+      message: nextFavorite ? 'Bookmark favorited successfully' : 'Bookmark removed from favorites',
+      bookmark: {
+        id: bookmarkId,
+        is_favorite: nextFavorite,
+      },
+    });
+  }
+
+  if (request.method === 'POST' && segments[1] === 'tags' && segments[2] && segments[3] === 'favorite') {
+    const tagId = Number(segments[2]);
+    if (!Number.isInteger(tagId) || tagId <= 0) {
+      return jsonResponse({ error: 'Invalid tag id' }, 400);
+    }
+
+    const hasFavoriteTagsTable = await tableExists(db, 'favorite_tags');
+    if (!hasFavoriteTagsTable) {
+      return jsonResponse({ error: 'Favorite tags are not configured yet' }, 503);
+    }
+
+    const tag = await db
+      .prepare('SELECT id, name FROM tags WHERE id = ?')
+      .bind(tagId)
+      .first();
+
+    if (!tag) {
+      return jsonResponse({ error: 'Tag not found' }, 404);
+    }
+
+    const existing = await db
+      .prepare('SELECT user_id FROM favorite_tags WHERE user_id = ? AND tag_id = ?')
+      .bind(auth.user.id, tagId)
+      .first();
+
+    let isFavorite = false;
+    if (existing) {
+      await db
+        .prepare('DELETE FROM favorite_tags WHERE user_id = ? AND tag_id = ?')
+        .bind(auth.user.id, tagId)
+        .run();
+    } else {
+      await db
+        .prepare('INSERT INTO favorite_tags (user_id, tag_id) VALUES (?, ?)')
+        .bind(auth.user.id, tagId)
+        .run();
+      isFavorite = true;
+    }
+
+    return jsonResponse({
+      message: isFavorite ? 'Tag favorited successfully' : 'Tag removed from favorites',
+      tag: {
+        id: tag.id,
+        name: tag.name,
+        is_favorite: isFavorite,
+      },
+    });
   }
 
   if (request.method === 'POST' && segments.length === 1) {

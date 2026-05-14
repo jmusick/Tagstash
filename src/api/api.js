@@ -64,6 +64,9 @@ export const authAPI = {
 
   adminUpdateUser: (id, updates) =>
     api.patch(`/auth/admin/users/${id}`, updates),
+
+  adminDeleteUser: (id) =>
+    api.delete(`/auth/admin/users/${id}`),
 };
 
 // Bookmarks API
@@ -83,6 +86,9 @@ export const bookmarksAPI = {
   delete: (id) =>
     api.delete(`/bookmarks/${id}`),
 
+  toggleFavorite: (id) =>
+    api.post(`/bookmarks/${id}/favorite`),
+
   fetchMetadata: (url) =>
     api.post('/bookmarks/meta', { url }),
 
@@ -91,6 +97,9 @@ export const bookmarksAPI = {
   
   getAllTags: () =>
     api.get('/bookmarks/tags/all'),
+
+  toggleTagFavorite: (id) =>
+    api.post(`/bookmarks/tags/${id}/favorite`),
 
   importBookmarks: (bookmarks) =>
     api.post('/bookmarks/import', { bookmarks }),

@@ -9,7 +9,7 @@ import SupportPage from './components/SupportPage'
 import VerifyEmail from './components/VerifyEmail'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI, billingAPI } from './api/api'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun, Info } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun, Info } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
@@ -72,6 +72,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [selectedTags, setSelectedTags] = useState([])
   const [sortBy, setSortBy] = useState('date')
   const [sortDirection, setSortDirection] = useState('desc')
@@ -140,6 +141,7 @@ function App() {
   const handleLogoClick = () => {
     setActivePage('bookmarks')
     setSearchTerm('')
+    setShowFavoritesOnly(false)
     setSelectedTags([])
     setSortBy('date')
     setSortDirection('desc')
@@ -232,9 +234,11 @@ function App() {
       const matchesTag = selectedTags.length === 0 ||
         selectedTags.every((selectedTag) => bookmarkTagNames.includes(selectedTag.toLowerCase()))
 
-      return matchesSearch && matchesTag
+      const matchesFavorite = !showFavoritesOnly || Boolean(bookmark.is_favorite)
+
+      return matchesSearch && matchesTag && matchesFavorite
     })
-  }, [sortedBookmarks, searchTerm, selectedTags])
+  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -263,15 +267,11 @@ function App() {
     return Array.from(new Set(tagNames)).sort((left, right) => left.localeCompare(right))
   }, [bookmarks])
 
-  const handleTagToggle = (tagName) => {
+  const handleTagSelect = (tagName) => {
     const normalized = tagName?.trim().toLowerCase()
     if (!normalized) return
 
-    setSelectedTags((prev) => (
-      prev.includes(normalized)
-        ? prev.filter((tag) => tag !== normalized)
-        : [...prev, normalized]
-    ))
+    setSelectedTags([normalized])
   }
 
   const handleTagAdd = (tagName) => {
@@ -279,6 +279,17 @@ function App() {
     if (!normalized) return
 
     setSelectedTags((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+  }
+
+  const handleTagFavoriteToggle = async (tag) => {
+    if (!tag?.id) return
+
+    try {
+      await bookmarksAPI.toggleTagFavorite(tag.id)
+      setTagsRefreshKey((prev) => prev + 1)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update favorite tag')
+    }
   }
 
   const handleTagRemove = (tagName) => {
@@ -532,6 +543,15 @@ function App() {
       setTagsRefreshKey(prev => prev + 1)
     } catch (err) {
       setError('Failed to delete bookmark')
+    }
+  }
+
+  const handleBookmarkFavoriteToggle = async (id) => {
+    try {
+      await bookmarksAPI.toggleFavorite(id)
+      fetchBookmarks()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update bookmark favorite')
     }
   }
 
@@ -838,6 +858,16 @@ function App() {
                 placeholder="Search bookmarks"
                 aria-label="Search bookmarks"
               />
+              <button
+                type="button"
+                className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
+                onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                aria-label={showFavoritesOnly ? 'Show all bookmarks' : 'Show favorite bookmarks only'}
+                title={showFavoritesOnly ? 'Showing favorites only' : 'Show favorite bookmarks only'}
+                aria-pressed={showFavoritesOnly}
+              >
+                <Star size={16} fill={showFavoritesOnly ? 'currentColor' : 'none'} />
+              </button>
             </div>
             <button 
               className="btn-primary"
@@ -1063,15 +1093,17 @@ function App() {
           ) : filteredBookmarks.length === 0 ? (
             <div className="empty-state">
               <p>
-                {searchTerm.trim() || selectedTags.length > 0
+                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly
                   ? 'No bookmarks match your search.'
                   : 'No bookmarks yet. Add your first one to get started!'}
               </p>
             </div>
           ) : (
+            <>
             <div className="bookmarks-grid">
               {paginatedBookmarks.map((bookmark) => {
                 const isEditing = editingBookmarkId === bookmark.id
+                const isFavorite = Boolean(bookmark.is_favorite)
                 const faviconSrc = isEditing
                   ? (getFaviconPreviewUrl(editFormData.url) || bookmark.favicon_url)
                   : bookmark.favicon_url
@@ -1099,6 +1131,15 @@ function App() {
                       >
                         <Pencil size={14} />
                         <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBookmarkFavoriteToggle(bookmark.id)}
+                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                        title={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
+                        aria-label={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
+                      >
+                        <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
                       </button>
                       <button 
                         onClick={() => handleDelete(bookmark.id)} 
@@ -1254,6 +1295,28 @@ function App() {
                 )
               })}
             </div>
+            <div className="pagination-toolbar pagination-toolbar-bottom">
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-status">Page {currentPage} of {totalPages}</span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            </>
           )}
         </div>
         </div>
@@ -1281,8 +1344,9 @@ function App() {
           )}
           <TagCloud
             selectedTags={selectedTags}
-            onTagToggle={handleTagToggle}
+            onTagSelect={handleTagSelect}
             onTagAdd={handleTagAdd}
+            onTagFavoriteToggle={handleTagFavoriteToggle}
             refreshKey={tagsRefreshKey}
           />
         </aside>

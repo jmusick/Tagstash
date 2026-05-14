@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { bookmarksAPI } from '../api/api';
-import { Tag, Search, Plus } from 'lucide-react';
+import { Tag, Search, Plus, Star } from 'lucide-react';
 import './TagCloud.css';
 
-function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) {
+function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0 }) {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
@@ -72,6 +72,7 @@ function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) 
           {visibleTags.map((tag, index) => {
             const normalizedTag = tag.name?.toLowerCase();
             const isSelected = selectedTags.includes(normalizedTag);
+            const isFavorite = Boolean(tag.is_favorite);
 
             return (
               <div
@@ -80,15 +81,15 @@ function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) 
                 title={`${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => onTagToggle?.(tag.name)}
+                onClick={() => onTagSelect?.(tag.name)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onTagToggle?.(tag.name);
+                    onTagSelect?.(tag.name);
                   }
                 }}
               >
-                <span className="tag-chip-prefix">
+                <span className="tag-chip-actions">
                   <button
                     type="button"
                     className={`tag-cloud-chip-plus ${isSelected ? 'active' : ''}`}
@@ -100,7 +101,19 @@ function TagCloud({ selectedTags = [], onTagToggle, onTagAdd, refreshKey = 0 }) 
                     aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
                     disabled={isSelected}
                   >
-                    <Plus size={20} />
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`tag-cloud-chip-star ${isFavorite ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTagFavoriteToggle?.(tag);
+                    }}
+                    title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                    aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                  >
+                    <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
                   </button>
                 </span>
                 <span className="tag-name">{tag.name}</span>

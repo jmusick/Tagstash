@@ -15,6 +15,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
   const [adminUserQuery, setAdminUserQuery] = useState('');
   const [savingAdminUserId, setSavingAdminUserId] = useState(null);
+  const [deletingAdminUserId, setDeletingAdminUserId] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [apiKeys, setApiKeys] = useState([]);
@@ -191,6 +192,29 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
       setError(err.response?.data?.error || 'Failed to update user access');
     } finally {
       setSavingAdminUserId(null);
+    }
+  };
+
+  const handleDeleteAdminUser = async (member) => {
+    const confirmed = window.confirm(
+      `Delete ${member.email}? This will permanently remove the account and all of their bookmarks.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingAdminUserId(member.id);
+      setError('');
+      setSuccess('');
+      await authAPI.adminDeleteUser(member.id);
+      setSuccess(`Deleted ${member.email} and removed their bookmarks`);
+      await fetchAdminUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete user');
+    } finally {
+      setDeletingAdminUserId(null);
     }
   };
 
@@ -916,6 +940,18 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                       <p className="admin-user-name">{member.username}</p>
                       <p className="admin-user-email">{member.email}</p>
                       <p className="admin-user-count">Bookmarks: {member.bookmark_count}</p>
+                      <p className="admin-user-last-login">
+                        Last login:{' '}
+                        {member.last_login_at
+                          ? new Date(member.last_login_at).toLocaleString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })
+                          : 'Never'}
+                      </p>
                     </div>
 
                     <div className="admin-user-controls">
@@ -943,14 +979,38 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                         </select>
                       </label>
 
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        onClick={() => handleSaveAdminUser(member)}
-                        disabled={savingAdminUserId === member.id}
-                      >
-                        {savingAdminUserId === member.id ? 'Saving...' : 'Save'}
-                      </button>
+                      <div className="admin-user-actions">
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => handleSaveAdminUser(member)}
+                          disabled={savingAdminUserId === member.id}
+                        >
+                          <CheckCircle size={14} className="btn-icon" />
+                          {savingAdminUserId === member.id ? 'Saving...' : 'Save'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-primary btn-danger"
+                          onClick={() => handleDeleteAdminUser(member)}
+                          disabled={
+                            deletingAdminUserId === member.id ||
+                            member.id === user?.id ||
+                            member.role === 'super_admin'
+                          }
+                          title={
+                            member.id === user?.id
+                              ? 'You cannot delete your own account from this panel'
+                              : member.role === 'super_admin'
+                                ? 'Configured super admin account cannot be deleted'
+                                : 'Delete this account and all bookmarks'
+                          }
+                        >
+                          <Trash2 size={14} className="btn-icon" />
+                          {deletingAdminUserId === member.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
