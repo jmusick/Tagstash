@@ -38,6 +38,12 @@ export const authAPI = {
   resendVerification: (email) =>
     api.post('/auth/resend-verification', { email }),
 
+  forgotPassword: (email) =>
+    api.post('/auth/forgot-password', { email }),
+
+  resetPassword: (token, password) =>
+    api.post('/auth/reset-password', { token, password }),
+
   getApiKeys: () =>
     api.get('/auth/api-keys'),
 

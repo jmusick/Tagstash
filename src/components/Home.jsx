@@ -16,6 +16,10 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
   const [loading, setLoading] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const [resendStatus, setResendStatus] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStatus, setForgotStatus] = useState('idle'); // idle | loading | sent | error
+  const [forgotError, setForgotError] = useState('');
 
   const { login, register } = useAuth();
 
@@ -65,6 +69,24 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
     setFormData({ username: '', email: '', password: '' });
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotStatus('loading');
+    setForgotError('');
+    try {
+      await authAPI.forgotPassword(forgotEmail);
+      setForgotStatus('sent');
+    } catch (err) {
+      if (err.response?.status === 429) {
+        setForgotError(err.response?.data?.error || 'Please wait before requesting another reset link.');
+        setForgotStatus('error');
+      } else {
+        // For security, don't reveal if email wasn't found
+        setForgotStatus('sent');
+      }
+    }
+  };
+
   const handleResend = async () => {
     setResendStatus('');
     try {
@@ -109,6 +131,76 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
   ];
 
   const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth', 'Stripe', 'Resend'];
+
+  if (forgotMode) {
+    return (
+      <div className="home-container home-container--centered">
+        <div className="home-topbar">
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="theme-toggle-btn home-theme-toggle"
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+        <div className="home-centered-content">
+          <div className="auth-card">
+            {forgotStatus === 'sent' ? (
+              <>
+                <h2 className="auth-card-title">Check your email</h2>
+                <p className="auth-description">
+                  If <strong>{forgotEmail}</strong> is registered, a password reset link has been sent.
+                </p>
+                <button
+                  className="auth-button auth-button--secondary"
+                  onClick={() => { setForgotMode(false); setForgotStatus('idle'); setForgotError(''); }}
+                >
+                  Back to sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="auth-card-title">Reset your password</h2>
+                <p className="auth-description">
+                  Enter your email address and we&rsquo;ll send you a link to choose a new password.
+                </p>
+                <form onSubmit={handleForgotPassword} className="auth-form">
+                  <div className="form-field">
+                    <label htmlFor="forgot-email">Email</label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => { setForgotEmail(e.target.value); setForgotError(''); }}
+                      required
+                      placeholder="Enter your email"
+                      autoFocus
+                    />
+                  </div>
+                  {forgotError && <div className="auth-error">{forgotError}</div>}
+                  <button type="submit" className="auth-button" disabled={forgotStatus === 'loading'}>
+                    {forgotStatus === 'loading' ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </form>
+                <div className="auth-toggle">
+                  Remember your password?{' '}
+                  <button
+                    onClick={() => { setForgotMode(false); setForgotStatus('idle'); setForgotError(''); }}
+                    className="auth-toggle-button"
+                  >
+                    Back to sign in
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (pendingEmail) {
     return (
@@ -241,6 +333,18 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
                 minLength={6}
               />
             </div>
+
+            {isLogin && (
+              <div style={{ textAlign: 'right', marginTop: '-4px' }}>
+                <button
+                  type="button"
+                  className="auth-toggle-button"
+                  onClick={() => { setForgotEmail(formData.email); setForgotMode(true); setForgotStatus('idle'); setForgotError(''); }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {error && <div className="auth-error">{error}</div>}
 

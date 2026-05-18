@@ -1,12 +1,12 @@
 {
   "name": "tagstash",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "description": "A tag-based bookmarking web application",
   "scripts": {
     "dev": "vite",
-    "dev:api": "wrangler pages dev . --local --port 5000 --proxy 3000",
+    "dev:api": "wrangler pages dev . --local --port 5000 --proxy 3010",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "setup:db": "wrangler d1 migrations apply tagstash-db --local",
     "build": "vite build",

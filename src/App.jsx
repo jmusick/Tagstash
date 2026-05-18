@@ -7,6 +7,7 @@ import Settings from './components/Settings'
 import PolicyPage from './components/PolicyPage'
 import SupportPage from './components/SupportPage'
 import VerifyEmail from './components/VerifyEmail'
+import ResetPassword from './components/ResetPassword'
 import TagCloud from './components/TagCloud'
 import { bookmarksAPI, billingAPI } from './api/api'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun, Info } from 'lucide-react'
@@ -66,9 +67,12 @@ function App() {
   const [theme, setTheme] = useState(getInitialTheme)
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [activePage, setActivePage] = useState(() =>
-    window.location.pathname === '/verify-email' ? 'verify-email' : 'bookmarks'
-  )
+  const [activePage, setActivePage] = useState(() => {
+    const path = window.location.pathname
+    if (path === '/verify-email') return 'verify-email'
+    if (path === '/reset-password') return 'reset-password'
+    return 'bookmarks'
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -718,6 +722,10 @@ function App() {
 
   if (activePage === 'verify-email') {
     return <VerifyEmail logoSrc={logoSrc} />
+  }
+
+  if (activePage === 'reset-password') {
+    return <ResetPassword logoSrc={logoSrc} />
   }
 
   if (!user) {

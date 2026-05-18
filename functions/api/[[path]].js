@@ -88,6 +88,51 @@ const sendVerificationEmail = async (email, username, token, env) => {
   }
 };
 
+const sendPasswordResetEmail = async (email, username, token, env) => {
+  if (!env.RESEND_API_KEY) throw new Error('Missing RESEND_API_KEY');
+  if (!env.EMAIL_FROM) throw new Error('Missing EMAIL_FROM');
+
+  const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const resetUrl = `${appUrl}/reset-password?token=${token}`;
+  const resend = new Resend(env.RESEND_API_KEY);
+  const fromAddress = env.EMAIL_FROM;
+  const replyTo = env.EMAIL_REPLY_TO || undefined;
+
+  const textBody = [
+    `Hi ${username},`,
+    '',
+    'We received a request to reset your Tagstash password. Click the link below to choose a new one:',
+    resetUrl,
+    '',
+    'This link expires in 1 hour.',
+    'If you did not request a password reset, you can safely ignore this email.',
+  ].join('\n');
+
+  const htmlBody = `
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
+  <p>Hi ${username},</p>
+  <p>We received a request to reset your Tagstash password. Click the button below to choose a new one:</p>
+  <p>
+    <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">Reset password</a>
+  </p>
+  <p>If the button does not work, copy and paste this link into your browser:</p>
+  <p><a href="${resetUrl}">${resetUrl}</a></p>
+  <p>This link expires in 1 hour.</p>
+  <p>If you did not request a password reset, you can safely ignore this email.</p>
+</div>`;
+
+  const { error } = await resend.emails.send({
+    from: fromAddress,
+    to: email,
+    replyTo,
+    subject: 'Reset your Tagstash password',
+    text: textBody,
+    html: htmlBody,
+  });
+
+  if (error) throw new Error(error.message || 'Failed to send password reset email');
+};
+
 const jsonResponse = (payload, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -2004,6 +2049,120 @@ async function handleBilling(request, env, segments) {
         { id: 'monthly', available: !!env.STRIPE_MONTHLY_PRICE_ID },
         { id: 'annual', available: !!env.STRIPE_ANNUAL_PRICE_ID },
       ],
+    });
+  }
+
+  if (request.method === 'POST' && segments[1] === 'forgot-password') {
+    const { email } = await parseBody(request);
+    const normalizedEmail = normalizeEmail(email);
+
+    // Always return success to prevent email enumeration
+    if (!normalizedEmail) {
+      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+    }
+
+    const user = await db
+      .prepare('SELECT id, username, email_verified FROM users WHERE LOWER(email) = LOWER(?)')
+      .bind(normalizedEmail)
+      .first();
+
+    if (!user || !user.email_verified) {
+      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+    }
+
+    // Rate-limit: one request per 60 seconds
+    const recent = await db
+      .prepare(
+        `SELECT id FROM password_reset_tokens
+         WHERE user_id = ? AND used_at IS NULL
+           AND created_at > datetime('now', '-60 seconds')
+         LIMIT 1`
+      )
+      .bind(user.id)
+      .first();
+
+    if (recent) {
+      return jsonResponse({ error: 'Please wait a moment before requesting another reset link.' }, 429);
+    }
+
+    // Invalidate old unused tokens
+    await db
+      .prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL')
+      .bind(user.id)
+      .run();
+
+    const resetToken = generateVerificationToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+    await db
+      .prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
+      .bind(user.id, resetToken, expiresAt)
+      .run();
+
+    try {
+      await sendPasswordResetEmail(normalizedEmail, user.username, resetToken, env);
+    } catch {
+      // Don't reveal failure to the caller
+    }
+
+    return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+  }
+
+  if (request.method === 'POST' && segments[1] === 'reset-password') {
+    const { token, password } = await parseBody(request);
+
+    if (!token || !password) {
+      return jsonResponse({ error: 'Token and new password are required.' }, 400);
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return jsonResponse({ error: 'Password must be at least 6 characters.' }, 400);
+    }
+
+    const record = await db
+      .prepare(
+        `SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at
+         FROM password_reset_tokens prt
+         WHERE prt.token = ?`
+      )
+      .bind(token)
+      .first();
+
+    if (!record) {
+      return jsonResponse({ error: 'Invalid or expired reset link.' }, 400);
+    }
+
+    if (record.used_at) {
+      return jsonResponse({ error: 'This reset link has already been used.' }, 400);
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      return jsonResponse({ error: 'This reset link has expired. Please request a new one.' }, 400);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db
+      .prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(passwordHash, record.user_id)
+      .run();
+
+    await db
+      .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(record.id)
+      .run();
+
+    const updatedUser = await db
+      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+      .bind(record.user_id)
+      .first();
+
+    const authToken = await signUserToken(updatedUser, env);
+
+    return jsonResponse({
+      message: 'Password reset successfully.',
+      token: authToken,
+      user: updatedUser,
     });
   }
 
