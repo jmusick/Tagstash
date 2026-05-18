@@ -2056,8 +2056,11 @@ async function handleBilling(request, env, segments) {
     const { email } = await parseBody(request);
     const normalizedEmail = normalizeEmail(email);
 
+    console.log('[forgot-password] hit, raw email:', email, '| normalized:', normalizedEmail);
+
     // Always return success to prevent email enumeration
     if (!normalizedEmail) {
+      console.log('[forgot-password] empty email, returning early');
       return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
     }
 
