@@ -2101,8 +2101,9 @@ async function handleBilling(request, env, segments) {
 
     try {
       await sendPasswordResetEmail(normalizedEmail, user.username, resetToken, env);
-    } catch {
-      // Don't reveal failure to the caller
+    } catch (err) {
+      // Don't reveal failure to the caller, but log it for debugging
+      console.error('[forgot-password] Failed to send reset email:', err?.message ?? err);
     }
 
     return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
