@@ -2061,14 +2061,19 @@ async function handleBilling(request, env, segments) {
       return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
     }
 
+    console.log('[forgot-password] lookup for:', normalizedEmail);
+
     const user = await db
       .prepare('SELECT id, username FROM users WHERE LOWER(email) = LOWER(?)')
       .bind(normalizedEmail)
       .first();
 
     if (!user) {
+      console.log('[forgot-password] no user found');
       return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
     }
+
+    console.log('[forgot-password] user found, id:', user.id);
 
     // Rate-limit: one request per 60 seconds
     const recent = await db
@@ -2082,6 +2087,7 @@ async function handleBilling(request, env, segments) {
       .first();
 
     if (recent) {
+      console.log('[forgot-password] rate limited');
       return jsonResponse({ error: 'Please wait a moment before requesting another reset link.' }, 429);
     }
 
@@ -2099,8 +2105,11 @@ async function handleBilling(request, env, segments) {
       .bind(user.id, resetToken, expiresAt)
       .run();
 
+    console.log('[forgot-password] token inserted, sending email...');
+
     try {
       await sendPasswordResetEmail(normalizedEmail, user.username, resetToken, env);
+      console.log('[forgot-password] email sent successfully');
     } catch (err) {
       // Don't reveal failure to the caller, but log it for debugging
       console.error('[forgot-password] Failed to send reset email:', err?.message ?? err);
