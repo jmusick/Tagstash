@@ -2062,11 +2062,11 @@ async function handleBilling(request, env, segments) {
     }
 
     const user = await db
-      .prepare('SELECT id, username, email_verified FROM users WHERE LOWER(email) = LOWER(?)')
+      .prepare('SELECT id, username FROM users WHERE LOWER(email) = LOWER(?)')
       .bind(normalizedEmail)
       .first();
 
-    if (!user || !user.email_verified) {
+    if (!user) {
       return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
     }
 
