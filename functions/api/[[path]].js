@@ -1412,6 +1412,133 @@ async function handleAuth(request, env, segments) {
     return jsonResponse({ message: 'User account and bookmarks deleted successfully' });
   }
 
+  if (request.method === 'POST' && segments[1] === 'forgot-password') {
+    const { email } = await parseBody(request);
+    const normalizedEmail = normalizeEmail(email);
+
+    console.log('[forgot-password] hit, raw email:', email, '| normalized:', normalizedEmail);
+
+    // Always return success to prevent email enumeration
+    if (!normalizedEmail) {
+      console.log('[forgot-password] empty email, returning early');
+      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+    }
+
+    console.log('[forgot-password] lookup for:', normalizedEmail);
+
+    const user = await db
+      .prepare('SELECT id, username FROM users WHERE LOWER(email) = LOWER(?)')
+      .bind(normalizedEmail)
+      .first();
+
+    if (!user) {
+      console.log('[forgot-password] no user found');
+      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+    }
+
+    console.log('[forgot-password] user found, id:', user.id);
+
+    // Rate-limit: one request per 60 seconds
+    const recent = await db
+      .prepare(
+        `SELECT id FROM password_reset_tokens
+         WHERE user_id = ? AND used_at IS NULL
+           AND created_at > datetime('now', '-60 seconds')
+         LIMIT 1`
+      )
+      .bind(user.id)
+      .first();
+
+    if (recent) {
+      console.log('[forgot-password] rate limited');
+      return jsonResponse({ error: 'Please wait a moment before requesting another reset link.' }, 429);
+    }
+
+    // Invalidate old unused tokens
+    await db
+      .prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL')
+      .bind(user.id)
+      .run();
+
+    const resetToken = generateVerificationToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+    await db
+      .prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
+      .bind(user.id, resetToken, expiresAt)
+      .run();
+
+    console.log('[forgot-password] token inserted, sending email...');
+
+    try {
+      await sendPasswordResetEmail(normalizedEmail, user.username, resetToken, env);
+      console.log('[forgot-password] email sent successfully');
+    } catch (err) {
+      // Don't reveal failure to the caller, but log it for debugging
+      console.error('[forgot-password] Failed to send reset email:', err?.message ?? err);
+    }
+
+    return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
+  }
+
+  if (request.method === 'POST' && segments[1] === 'reset-password') {
+    const { token, password } = await parseBody(request);
+
+    if (!token || !password) {
+      return jsonResponse({ error: 'Token and new password are required.' }, 400);
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return jsonResponse({ error: 'Password must be at least 6 characters.' }, 400);
+    }
+
+    const record = await db
+      .prepare(
+        `SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at
+         FROM password_reset_tokens prt
+         WHERE prt.token = ?`
+      )
+      .bind(token)
+      .first();
+
+    if (!record) {
+      return jsonResponse({ error: 'Invalid or expired reset link.' }, 400);
+    }
+
+    if (record.used_at) {
+      return jsonResponse({ error: 'This reset link has already been used.' }, 400);
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      return jsonResponse({ error: 'This reset link has expired. Please request a new one.' }, 400);
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db
+      .prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(passwordHash, record.user_id)
+      .run();
+
+    await db
+      .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(record.id)
+      .run();
+
+    const updatedUser = await db
+      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+      .bind(record.user_id)
+      .first();
+
+    const authToken = await signUserToken(updatedUser, env);
+
+    return jsonResponse({
+      message: 'Password reset successfully.',
+      token: authToken,
+      user: updatedUser,
+    });
+  }
+
   return jsonResponse({ error: 'Route not found' }, 404);
 }
 
@@ -2049,133 +2176,6 @@ async function handleBilling(request, env, segments) {
         { id: 'monthly', available: !!env.STRIPE_MONTHLY_PRICE_ID },
         { id: 'annual', available: !!env.STRIPE_ANNUAL_PRICE_ID },
       ],
-    });
-  }
-
-  if (request.method === 'POST' && segments[1] === 'forgot-password') {
-    const { email } = await parseBody(request);
-    const normalizedEmail = normalizeEmail(email);
-
-    console.log('[forgot-password] hit, raw email:', email, '| normalized:', normalizedEmail);
-
-    // Always return success to prevent email enumeration
-    if (!normalizedEmail) {
-      console.log('[forgot-password] empty email, returning early');
-      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
-    }
-
-    console.log('[forgot-password] lookup for:', normalizedEmail);
-
-    const user = await db
-      .prepare('SELECT id, username FROM users WHERE LOWER(email) = LOWER(?)')
-      .bind(normalizedEmail)
-      .first();
-
-    if (!user) {
-      console.log('[forgot-password] no user found');
-      return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
-    }
-
-    console.log('[forgot-password] user found, id:', user.id);
-
-    // Rate-limit: one request per 60 seconds
-    const recent = await db
-      .prepare(
-        `SELECT id FROM password_reset_tokens
-         WHERE user_id = ? AND used_at IS NULL
-           AND created_at > datetime('now', '-60 seconds')
-         LIMIT 1`
-      )
-      .bind(user.id)
-      .first();
-
-    if (recent) {
-      console.log('[forgot-password] rate limited');
-      return jsonResponse({ error: 'Please wait a moment before requesting another reset link.' }, 429);
-    }
-
-    // Invalidate old unused tokens
-    await db
-      .prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL')
-      .bind(user.id)
-      .run();
-
-    const resetToken = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-
-    await db
-      .prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .bind(user.id, resetToken, expiresAt)
-      .run();
-
-    console.log('[forgot-password] token inserted, sending email...');
-
-    try {
-      await sendPasswordResetEmail(normalizedEmail, user.username, resetToken, env);
-      console.log('[forgot-password] email sent successfully');
-    } catch (err) {
-      // Don't reveal failure to the caller, but log it for debugging
-      console.error('[forgot-password] Failed to send reset email:', err?.message ?? err);
-    }
-
-    return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
-  }
-
-  if (request.method === 'POST' && segments[1] === 'reset-password') {
-    const { token, password } = await parseBody(request);
-
-    if (!token || !password) {
-      return jsonResponse({ error: 'Token and new password are required.' }, 400);
-    }
-
-    if (typeof password !== 'string' || password.length < 6) {
-      return jsonResponse({ error: 'Password must be at least 6 characters.' }, 400);
-    }
-
-    const record = await db
-      .prepare(
-        `SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at
-         FROM password_reset_tokens prt
-         WHERE prt.token = ?`
-      )
-      .bind(token)
-      .first();
-
-    if (!record) {
-      return jsonResponse({ error: 'Invalid or expired reset link.' }, 400);
-    }
-
-    if (record.used_at) {
-      return jsonResponse({ error: 'This reset link has already been used.' }, 400);
-    }
-
-    if (new Date(record.expires_at) < new Date()) {
-      return jsonResponse({ error: 'This reset link has expired. Please request a new one.' }, 400);
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    await db
-      .prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .bind(passwordHash, record.user_id)
-      .run();
-
-    await db
-      .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .bind(record.id)
-      .run();
-
-    const updatedUser = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
-      .bind(record.user_id)
-      .first();
-
-    const authToken = await signUserToken(updatedUser, env);
-
-    return jsonResponse({
-      message: 'Password reset successfully.',
-      token: authToken,
-      user: updatedUser,
     });
   }
 
