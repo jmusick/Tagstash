@@ -219,11 +219,20 @@
   font-size: 0.92rem;
 }
 
+.settings-extensions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 .settings-extension-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 1rem;
+  align-items: center;
+  text-align: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface-soft);
@@ -245,12 +254,32 @@
   gap: 0.75rem;
 }
 
+.settings-extension-icon {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
 .settings-extension-badge {
   display: inline-flex;
   align-items: center;
   padding: 0.28rem 0.62rem;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--color-tag-start) 0%, var(--color-tag-end) 100%);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.settings-extension-preferred-badge {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  background: #22c55e;
   color: #fff;
   font-size: 0.78rem;
   font-weight: 700;
@@ -273,6 +302,11 @@
   font-size: 0.9rem;
   line-height: 1.5;
   opacity: 0.84;
+}
+
+.settings-extension-sidebar-note {
+  font-size: 0.82rem;
+  opacity: 0.7;
 }
 
 .settings-import-description {

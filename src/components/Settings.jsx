@@ -880,21 +880,32 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
               Install the Tagstash browser extension to save the current page directly into your account.
             </p>
 
-            <a
-              href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
-              target="_blank"
-              rel="noreferrer"
-              className="settings-extension-card"
-            >
-              <div className="settings-extension-card-head">
-                <span className="settings-extension-badge">Firefox</span>
-                <span className="settings-extension-link-text">Open Add-ons listing</span>
-              </div>
-              <h3>Tagstash for Firefox</h3>
-              <p>
-                Save the current tab without leaving the page. Great for quick capture while browsing.
-              </p>
-            </a>
+            <div className="settings-extensions-grid">
+              <a
+                href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
+                target="_blank"
+                rel="noreferrer"
+                className="settings-extension-card"
+              >
+                <img src="/firefox.svg" alt="Firefox" className="settings-extension-icon" />
+                <h3>Firefox</h3>
+                <span className="settings-extension-preferred-badge">Preferred</span>
+                <p>Save the current tab without leaving the page. Great for quick capture while browsing.</p>
+                <p className="settings-extension-sidebar-note">Browse your full tag library and save pages from a persistent Firefox sidebar.</p>
+                <span className="settings-extension-link-text">Open Add-ons listing →</span>
+              </a>
+              <a
+                href="https://chromewebstore.google.com/detail/tagstash/ijoaejbpaibpodnohjmlbeanfhjdgoab"
+                target="_blank"
+                rel="noreferrer"
+                className="settings-extension-card"
+              >
+                <img src="/chrome.svg" alt="Chrome" className="settings-extension-icon" />
+                <h3>Chrome</h3>
+                <p>Save the current tab without leaving the page. Great for quick capture while browsing.</p>
+                <span className="settings-extension-link-text">Open Web Store listing →</span>
+              </a>
+            </div>
           </div>
         )}
 

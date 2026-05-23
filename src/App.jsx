@@ -432,7 +432,7 @@ function App() {
   const handleBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(formData.url))
-      setFormData(prev => ({ ...prev, url: u.origin }))
+      setFormData(prev => ({ ...prev, url: u.origin + '/' }))
     } catch {}
   }
 
@@ -446,7 +446,7 @@ function App() {
   const handleEditBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(editFormData.url))
-      setEditFormData(prev => ({ ...prev, url: u.origin }))
+      setEditFormData(prev => ({ ...prev, url: u.origin + '/' }))
     } catch {}
   }
 

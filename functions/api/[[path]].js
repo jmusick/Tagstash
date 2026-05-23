@@ -1407,7 +1407,15 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Configured super admin account cannot be deleted' }, 400);
     }
 
-    await db.prepare('DELETE FROM users WHERE id = ?').bind(targetId).run();
+    await db.batch([
+      db.prepare('DELETE FROM bookmark_tags WHERE bookmark_id IN (SELECT id FROM bookmarks WHERE user_id = ?)').bind(targetId),
+      db.prepare('DELETE FROM bookmarks WHERE user_id = ?').bind(targetId),
+      db.prepare('DELETE FROM favorite_tags WHERE user_id = ?').bind(targetId),
+      db.prepare('DELETE FROM api_keys WHERE user_id = ?').bind(targetId),
+      db.prepare('DELETE FROM email_verification_tokens WHERE user_id = ?').bind(targetId),
+      db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').bind(targetId),
+      db.prepare('DELETE FROM users WHERE id = ?').bind(targetId),
+    ]);
 
     return jsonResponse({ message: 'User account and bookmarks deleted successfully' });
   }

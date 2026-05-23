@@ -366,9 +366,25 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
             rel="noreferrer"
             className="extension-link-card"
           >
-            <span className="extension-link-kicker">Firefox Extension</span>
-            <span className="extension-link-title">Install Tagstash for Firefox</span>
-            <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
+            <img src="/firefox.svg" alt="Firefox" className="extension-link-browser-icon" />
+            <div className="extension-link-text">
+              <span className="extension-link-kicker">Firefox Extension</span>
+              <span className="extension-link-title">Install Tagstash for Firefox</span>
+              <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
+            </div>
+          </a>
+          <a
+            href="https://chromewebstore.google.com/detail/tagstash/ijoaejbpaibpodnohjmlbeanfhjdgoab"
+            target="_blank"
+            rel="noreferrer"
+            className="extension-link-card"
+          >
+            <img src="/chrome.svg" alt="Chrome" className="extension-link-browser-icon" />
+            <div className="extension-link-text">
+              <span className="extension-link-kicker">Chrome Extension</span>
+              <span className="extension-link-title">Install Tagstash for Chrome</span>
+              <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
+            </div>
           </a>
         </div>
       </section>
