@@ -359,7 +359,7 @@ const signUserToken = async (user, env) =>
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('60d')
     .sign(getJwtSecret(env));
 
 const ensureUserRoleMatchesConfig = async (db, user, env) => {
