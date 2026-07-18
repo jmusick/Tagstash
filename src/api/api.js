@@ -65,6 +65,9 @@ export const authAPI = {
   updatePassword: (currentPassword, newPassword, confirmPassword) =>
     api.put('/auth/password', { currentPassword, newPassword, confirmPassword }),
 
+  updateProfilePublic: (profilePublic) =>
+    api.put('/auth/profile-public', { profilePublic }),
+
   adminListUsers: () =>
     api.get('/auth/admin/users'),
 
@@ -94,6 +97,9 @@ export const bookmarksAPI = {
 
   toggleFavorite: (id) =>
     api.post(`/bookmarks/${id}/favorite`),
+
+  togglePrivate: (id) =>
+    api.post(`/bookmarks/${id}/private`),
 
   fetchMetadata: (url) =>
     api.post('/bookmarks/meta', { url }),
@@ -128,6 +134,11 @@ export const billingAPI = {
 export const supportAPI = {
   submit: ({ email, message, captchaToken }) =>
     api.post('/support', { email, message, captchaToken }),
+};
+
+export const profileAPI = {
+  getPublicProfile: (username) =>
+    api.get(`/profiles/${encodeURIComponent(username)}`),
 };
 
 export default api;

@@ -24,6 +24,7 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
   const [generatedApiKey, setGeneratedApiKey] = useState('');
   const [showRevokedKeys, setShowRevokedKeys] = useState(false);
   const [revealedApiKeys, setRevealedApiKeys] = useState({});
+  const [publicApiTagInput, setPublicApiTagInput] = useState('');
 
   // Billing state
   const [plans, setPlans] = useState([]);
@@ -440,6 +441,39 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
     }
   };
 
+  const handleTogglePublicProfile = async (e) => {
+    const nextValue = e.target.checked;
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      await authAPI.updateProfilePublic(nextValue);
+      updateUser({ ...user, profile_public: nextValue ? 1 : 0 });
+      setSuccess(nextValue ? 'Public profile enabled' : 'Public profile disabled');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update public profile setting');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const publicProfileUrl = `${window.location.origin}/u/${user?.username || ''}`;
+  const publicApiUrl = (() => {
+    const base = `${window.location.origin}/api/profiles/${user?.username || ''}`;
+    const tag = publicApiTagInput.trim().toLowerCase();
+    return tag ? `${base}?tag=${encodeURIComponent(tag)}` : base;
+  })();
+
+  const handleCopyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSuccess('Link copied to clipboard');
+    } catch {
+      setError('Failed to copy link');
+    }
+  };
+
   return (
     <div className={pageMode ? 'settings-page' : 'settings-container'}>
       <div className={`settings-panel${pageMode ? ' settings-panel-page' : ''}`}>
@@ -485,6 +519,16 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
             }}
           >
             Password
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'publicProfile' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('publicProfile');
+              setError('');
+              setSuccess('');
+            }}
+          >
+            Public Profile
           </button>
           {/* API Keys tab hidden
           <button
@@ -690,6 +734,73 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
               {loading ? 'Updating...' : 'Update Password'}
             </button>
           </form>
+        )}
+
+        {activeTab === 'publicProfile' && (
+          <div className="settings-form">
+            <p>
+              Turn this on to let anyone with your link view your non-private bookmarks, browsable
+              by tag. All bookmarks are included by default &mdash; mark individual bookmarks
+              private from your bookmark list to keep them out of your public profile.
+            </p>
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={Boolean(user?.profile_public)}
+                onChange={handleTogglePublicProfile}
+                disabled={loading}
+              />
+              <span>Make my profile public</span>
+            </label>
+
+            {Boolean(user?.profile_public) && (
+              <>
+                <div className="public-profile-link">
+                  <input
+                    type="text"
+                    readOnly
+                    value={publicProfileUrl}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button type="button" onClick={() => handleCopyText(publicProfileUrl)} className="btn-secondary">
+                    <Copy size={14} /> Copy link
+                  </button>
+                </div>
+
+                <div>
+                  <strong>API access</strong>
+                  <p>
+                    The same bookmarks are also available as JSON, so you can pull them into another
+                    site &mdash; cross-origin requests are already allowed. Leave the tag field blank
+                    for all public bookmarks, or enter a tag to get only bookmarks with that tag.
+                  </p>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="public-api-tag">Tag (optional)</label>
+                  <input
+                    id="public-api-tag"
+                    type="text"
+                    value={publicApiTagInput}
+                    onChange={(e) => setPublicApiTagInput(e.target.value)}
+                    placeholder="e.g. poe2"
+                  />
+                </div>
+
+                <div className="public-profile-link">
+                  <input
+                    type="text"
+                    readOnly
+                    value={publicApiUrl}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button type="button" onClick={() => handleCopyText(publicApiUrl)} className="btn-secondary">
+                    <Copy size={14} /> Copy API URL
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
 
         {activeTab === 'apiKeys' && false && (

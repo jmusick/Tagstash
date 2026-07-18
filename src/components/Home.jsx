@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
-import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun } from 'lucide-react';
+import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun, Globe } from 'lucide-react';
 import { version } from '../../package.json';
 import './Home.css';
 
@@ -112,6 +112,11 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
       icon: Shield,
       title: 'Privacy Focused',
       description: 'Run your own instance or use the hosted version. Your library stays centered on your own workflow.'
+    },
+    {
+      icon: Globe,
+      title: 'Public Profiles',
+      description: 'Opt in to a public profile to share a read-only, tag-filterable view of your bookmarks. Mark individual bookmarks private to keep them out of it.'
     },
     {
       icon: Cloud,

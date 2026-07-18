@@ -1,7 +1,7 @@
 {
   "name": "tagstash",
   "private": true,
-  "version": "1.5.2",
+  "version": "1.6.0",
   "type": "module",
   "description": "A tag-based bookmarking web application",
   "scripts": {
@@ -20,6 +20,7 @@
     "lucide-react": "^0.577.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.1",
     "resend": "^6.12.2"
   },
   "devDependencies": {

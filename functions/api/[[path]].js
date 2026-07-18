@@ -435,14 +435,22 @@ const getUserPlanStatus = async (db, userId) => {
   };
 };
 
-const getTagsByBookmarkId = async (db, userId) => {
+const getTagsByBookmarkId = async (db, userId, { publicOnly = false, hasIsPrivateColumn } = {}) => {
+  let whereClause = 'WHERE b.user_id = ?';
+  if (publicOnly) {
+    const isPrivateColumnExists = hasIsPrivateColumn ?? (await bookmarksTableHasColumn(db, 'is_private'));
+    if (isPrivateColumnExists) {
+      whereClause += ' AND b.is_private = 0';
+    }
+  }
+
   const rows = await db
     .prepare(
       `SELECT bt.bookmark_id, t.id, t.name
        FROM bookmark_tags bt
        INNER JOIN tags t ON t.id = bt.tag_id
        INNER JOIN bookmarks b ON b.id = bt.bookmark_id
-       WHERE b.user_id = ?
+       ${whereClause}
        ORDER BY t.name ASC`
     )
     .bind(userId)
@@ -465,6 +473,38 @@ const attachTagsToBookmarks = async (db, userId, bookmarks) => {
     ...bookmark,
     tags: tagsByBookmark.get(bookmark.id) || [],
   }));
+};
+
+// columnName is always a hardcoded literal passed by the calling route ('is_favorite' or
+// 'is_private'), never user input, so interpolating it into SQL below is safe.
+const toggleBookmarkFlag = async (db, userId, bookmarkId, columnName, { onMessage, offMessage, notConfiguredMessage }) => {
+  const hasColumn = await bookmarksTableHasColumn(db, columnName);
+  if (!hasColumn) {
+    return { error: jsonResponse({ error: notConfiguredMessage }, 503) };
+  }
+
+  const bookmark = await db
+    .prepare(`SELECT id, ${columnName} FROM bookmarks WHERE id = ? AND user_id = ?`)
+    .bind(bookmarkId, userId)
+    .first();
+
+  if (!bookmark) {
+    return { error: jsonResponse({ error: 'Bookmark not found' }, 404) };
+  }
+
+  const nextValue = Number(bookmark[columnName] || 0) ? 0 : 1;
+
+  await db
+    .prepare(`UPDATE bookmarks SET ${columnName} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`)
+    .bind(nextValue, bookmarkId, userId)
+    .run();
+
+  return {
+    response: jsonResponse({
+      message: nextValue ? onMessage : offMessage,
+      bookmark: { id: bookmarkId, [columnName]: nextValue },
+    }),
+  };
 };
 
 const ensureTag = async (db, tagName) => {
@@ -576,10 +616,13 @@ const fetchSiteMetadata = async (url) => {
 };
 
 const listBookmarks = async (db, userId) => {
-  const hasIsFavoriteColumn = await bookmarksTableHasColumn(db, 'is_favorite');
-  const bookmarksQuery = hasIsFavoriteColumn
-    ? 'SELECT * FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC'
-    : 'SELECT *, 0 AS is_favorite FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC';
+  const bookmarksColumns = await db.prepare('PRAGMA table_info(bookmarks)').all();
+  const bookmarksColumnNames = new Set((bookmarksColumns.results || []).map((column) => column.name));
+  const hasIsFavoriteColumn = bookmarksColumnNames.has('is_favorite');
+  const hasIsPrivateColumn = bookmarksColumnNames.has('is_private');
+  const favoriteSelect = hasIsFavoriteColumn ? '*' : '*, 0 AS is_favorite';
+  const privateSelect = hasIsPrivateColumn ? favoriteSelect : `${favoriteSelect}, 0 AS is_private`;
+  const bookmarksQuery = `SELECT ${privateSelect} FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`;
 
   const bookmarksResult = await db
     .prepare(bookmarksQuery)
@@ -589,6 +632,7 @@ const listBookmarks = async (db, userId) => {
   const bookmarks = (bookmarksResult.results || []).map((bookmark) => ({
     ...bookmark,
     is_favorite: Number(bookmark.is_favorite || 0),
+    is_private: Number(bookmark.is_private || 0),
   }));
 
   for (const bookmark of bookmarks) {
@@ -883,6 +927,7 @@ async function handleAuth(request, env, segments) {
         membership_tier: user.membership_tier,
         role: user.role,
         last_login_at: lastLoginAt,
+        profile_public: Number(user.profile_public || 0),
       },
     });
   }
@@ -924,10 +969,17 @@ async function handleAuth(request, env, segments) {
       .bind(record.id)
       .run();
 
+    const hasProfilePublicColumnForVerify = await usersTableHasColumn(db, 'profile_public');
+    const verifiedUserQuery = hasProfilePublicColumnForVerify
+      ? 'SELECT id, username, email, membership_tier, role, profile_public FROM users WHERE id = ?'
+      : 'SELECT id, username, email, membership_tier, role, 0 AS profile_public FROM users WHERE id = ?';
+
     const verifiedUser = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
+      .prepare(verifiedUserQuery)
       .bind(record.user_id)
       .first();
+
+    verifiedUser.profile_public = Number(verifiedUser.profile_public || 0);
 
     const authToken = await signUserToken(verifiedUser, env);
 
@@ -990,14 +1042,21 @@ async function handleAuth(request, env, segments) {
     const auth = await requireAuth(request, env);
     if (auth.error) return auth.error;
 
+    const hasProfilePublicColumn = await usersTableHasColumn(db, 'profile_public');
+    const meQuery = hasProfilePublicColumn
+      ? 'SELECT id, username, email, membership_tier, role, created_at, profile_public FROM users WHERE id = ?'
+      : 'SELECT id, username, email, membership_tier, role, created_at, 0 AS profile_public FROM users WHERE id = ?';
+
     const user = await db
-      .prepare('SELECT id, username, email, membership_tier, role, created_at FROM users WHERE id = ?')
+      .prepare(meQuery)
       .bind(auth.user.id)
       .first();
 
     if (!user) {
       return jsonResponse({ error: 'User not found' }, 404);
     }
+
+    user.profile_public = Number(user.profile_public || 0);
 
     await ensureUserRoleMatchesConfig(db, user, env);
     return jsonResponse({ user });
@@ -1152,6 +1211,29 @@ async function handleAuth(request, env, segments) {
     await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(passwordHash, auth.user.id).run();
 
     return jsonResponse({ message: 'Password updated successfully' });
+  }
+
+  if (request.method === 'PUT' && segments[1] === 'profile-public') {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+
+    const hasProfilePublicColumn = await usersTableHasColumn(db, 'profile_public');
+    if (!hasProfilePublicColumn) {
+      return jsonResponse({ error: 'Public profiles are not configured yet' }, 503);
+    }
+
+    const { profilePublic } = await parseBody(request);
+    const nextValue = profilePublic ? 1 : 0;
+
+    await db
+      .prepare('UPDATE users SET profile_public = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(nextValue, auth.user.id)
+      .run();
+
+    return jsonResponse({
+      message: nextValue ? 'Public profile enabled' : 'Public profile disabled',
+      user: { profile_public: nextValue },
+    });
   }
 
   if (request.method === 'GET' && segments[1] === 'api-keys') {
@@ -1751,34 +1833,29 @@ async function handleBookmarks(request, env, segments) {
       return jsonResponse({ error: 'Invalid bookmark id' }, 400);
     }
 
-    const hasIsFavoriteColumn = await bookmarksTableHasColumn(db, 'is_favorite');
-    if (!hasIsFavoriteColumn) {
-      return jsonResponse({ error: 'Bookmark favorites are not configured yet' }, 503);
-    }
-
-    const bookmark = await db
-      .prepare('SELECT id, is_favorite FROM bookmarks WHERE id = ? AND user_id = ?')
-      .bind(bookmarkId, auth.user.id)
-      .first();
-
-    if (!bookmark) {
-      return jsonResponse({ error: 'Bookmark not found' }, 404);
-    }
-
-    const nextFavorite = Number(bookmark.is_favorite || 0) ? 0 : 1;
-
-    await db
-      .prepare('UPDATE bookmarks SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?')
-      .bind(nextFavorite, bookmarkId, auth.user.id)
-      .run();
-
-    return jsonResponse({
-      message: nextFavorite ? 'Bookmark favorited successfully' : 'Bookmark removed from favorites',
-      bookmark: {
-        id: bookmarkId,
-        is_favorite: nextFavorite,
-      },
+    const result = await toggleBookmarkFlag(db, auth.user.id, bookmarkId, 'is_favorite', {
+      onMessage: 'Bookmark favorited successfully',
+      offMessage: 'Bookmark removed from favorites',
+      notConfiguredMessage: 'Bookmark favorites are not configured yet',
     });
+
+    return result.error || result.response;
+  }
+
+  if (request.method === 'POST' && segments[1] && segments[2] === 'private') {
+    const bookmarkId = Number(segments[1]);
+
+    if (!Number.isInteger(bookmarkId) || bookmarkId <= 0) {
+      return jsonResponse({ error: 'Invalid bookmark id' }, 400);
+    }
+
+    const result = await toggleBookmarkFlag(db, auth.user.id, bookmarkId, 'is_private', {
+      onMessage: 'Bookmark marked private',
+      offMessage: 'Bookmark made public',
+      notConfiguredMessage: 'Private bookmarks are not configured yet',
+    });
+
+    return result.error || result.response;
   }
 
   if (request.method === 'POST' && segments[1] === 'tags' && segments[2] && segments[3] === 'favorite') {
@@ -1981,6 +2058,85 @@ async function handleBookmarks(request, env, segments) {
   }
 
   return jsonResponse({ error: 'Route not found' }, 404);
+}
+
+async function handleProfiles(request, env, segments) {
+  const db = env.DB;
+
+  if (request.method !== 'GET' || !segments[1]) {
+    return jsonResponse({ error: 'Route not found' }, 404);
+  }
+
+  const [hasProfilePublicColumn, hasIsPrivateColumn] = await Promise.all([
+    usersTableHasColumn(db, 'profile_public'),
+    bookmarksTableHasColumn(db, 'is_private'),
+  ]);
+
+  if (!hasProfilePublicColumn) {
+    return jsonResponse({ error: 'Not found' }, 404);
+  }
+
+  const username = decodeURIComponent(segments[1]);
+
+  const user = await db
+    .prepare('SELECT id, username, profile_public, created_at FROM users WHERE LOWER(username) = LOWER(?)')
+    .bind(username)
+    .first();
+
+  if (!user || !Number(user.profile_public)) {
+    return jsonResponse({ error: 'Not found' }, 404);
+  }
+
+  const bookmarksQuery = hasIsPrivateColumn
+    ? `SELECT id, title, url, description, favicon_url, created_at, updated_at
+       FROM bookmarks WHERE user_id = ? AND is_private = 0 ORDER BY created_at DESC`
+    : `SELECT id, title, url, description, favicon_url, created_at, updated_at
+       FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC`;
+
+  const [bookmarksResult, tagsByBookmark] = await Promise.all([
+    db.prepare(bookmarksQuery).bind(user.id).all(),
+    getTagsByBookmarkId(db, user.id, { publicOnly: true, hasIsPrivateColumn }),
+  ]);
+
+  let bookmarks = (bookmarksResult.results || []).map((bookmark) => ({
+    ...bookmark,
+    tags: tagsByBookmark.get(bookmark.id) || [],
+  }));
+
+  const tagCounts = new Map();
+  for (const bookmark of bookmarks) {
+    for (const tag of bookmark.tags) {
+      tagCounts.set(tag.name, (tagCounts.get(tag.name) || 0) + 1);
+    }
+  }
+  const tags = [...tagCounts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  // Consumed by external sites embedding a user's bookmarks (Settings surfaces these URLs) —
+  // repeatable ?tag= params AND together. `tags` above always lists the full public tag set,
+  // regardless of this filter, so a consumer can discover what else is available.
+  const url = new URL(request.url);
+  const appliedTags = [...new Set(
+    url.searchParams.getAll('tag').map((tag) => tag.trim().toLowerCase()).filter(Boolean)
+  )];
+
+  if (appliedTags.length > 0) {
+    bookmarks = bookmarks.filter((bookmark) => {
+      const bookmarkTagNames = new Set(bookmark.tags.map((tag) => tag.name.toLowerCase()));
+      return appliedTags.every((tag) => bookmarkTagNames.has(tag));
+    });
+  }
+
+  return jsonResponse({
+    profile: {
+      username: user.username,
+      member_since: user.created_at,
+    },
+    bookmarks,
+    tags,
+    appliedTags,
+  });
 }
 
 async function handleBilling(request, env, segments) {
@@ -2320,6 +2476,10 @@ export async function onRequest(context) {
 
     if (segments[1] === 'bookmarks') {
       return handleBookmarks(request, env, segments.slice(1));
+    }
+
+    if (segments[1] === 'profiles') {
+      return handleProfiles(request, env, segments.slice(1));
     }
 
     if (segments[1] === 'billing') {

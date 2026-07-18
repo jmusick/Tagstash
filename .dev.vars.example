@@ -1,8 +1,28 @@
 # Copy this file to .dev.vars for local Cloudflare Pages Functions development.
 # Do not commit .dev.vars.
 
+# Required
 JWT_SECRET=change_this_to_a_long_random_secret
 API_KEY_ENCRYPTION_SECRET=change_this_to_a_different_random_secret
 SUPER_ADMIN_EMAIL=your@email.com
-BILLING_WEBHOOK_SECRET=
+
+# Public app URL, used to build links in emails and Stripe redirect URLs.
+# Defaults to http://localhost:5173 for email links and https://tagsta.sh for
+# Stripe checkout/portal redirects if unset.
+APP_URL=http://localhost:3000
+
+# Email (Resend) — required for registration/verification/password-reset emails
+# and the support form to work locally.
+RESEND_API_KEY=
+EMAIL_FROM=
+EMAIL_REPLY_TO=
+SUPPORT_EMAIL=
+
+# Stripe — required for billing checkout/portal/webhook flows.
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_MONTHLY_PRICE_ID=
+STRIPE_ANNUAL_PRICE_ID=
+
+# Cloudflare Turnstile — required for the support form's CAPTCHA to validate.
 TURNSTILE_SECRET_KEY=

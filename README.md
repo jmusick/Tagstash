@@ -16,6 +16,7 @@ Current status at a glance:
 - Stripe Checkout and Stripe Billing Portal are integrated
 - Admin controls exist for managing user roles and membership tiers
 - Bookmark CRUD, tag cloud filtering, import flow, and search are in place
+- Opt-in public profiles let users share a read-only, tag-filterable view of their bookmarks
 - Browser extension support exists in the companion TagstashExtension project
 
 ## Features
@@ -28,6 +29,8 @@ Current status at a glance:
 - Stripe Checkout for upgrades
 - Stripe Billing Portal for subscription management
 - Email verification via Resend
+- Opt-in public profiles (`/u/:username`) for sharing your bookmarks via a link, with per-bookmark privacy control and tag filtering
+- Public JSON API (`/api/profiles/:username`, optionally tag-filtered) for embedding your bookmarks on other sites, with ready-to-copy URLs in Settings
 - Super admin controls for managing users, roles, and tiers
 - Light and dark theme support
 - Responsive UI for desktop and mobile
@@ -44,6 +47,7 @@ That hosted service is the official paid offering run by the author. This reposi
 ### Frontend
 
 - React 18
+- React Router
 - Vite
 - Axios
 - Context API
@@ -147,6 +151,7 @@ Production setup includes:
 - `GET /api/auth/me`
 - `GET /api/auth/verify-email`
 - `POST /api/auth/resend-verification`
+- `PUT /api/auth/profile-public`
 
 ### Admin
 
@@ -170,6 +175,46 @@ Production setup includes:
 - `DELETE /api/bookmarks/:id`
 - `POST /api/bookmarks/import`
 - `GET /api/bookmarks/tags/all`
+- `POST /api/bookmarks/:id/favorite`
+- `POST /api/bookmarks/:id/private`
+
+### Public Profiles
+
+- `GET /api/profiles/:username` — unauthenticated; returns a user's public, non-private bookmarks and tags if they've opted in via `PUT /api/auth/profile-public`
+
+This is a stable, documented public API meant for third-party consumption (not just internal page-support data) — Settings surfaces ready-to-copy URLs for it. Responses are JSON with CORS enabled for all origins, so it can be fetched directly from another site's frontend.
+
+Optional repeatable `?tag=` query param filters to bookmarks that have *all* of the given tags (AND):
+
+```
+GET /api/profiles/alice
+GET /api/profiles/alice?tag=poe2
+GET /api/profiles/alice?tag=poe2&tag=guides
+```
+
+Example response:
+
+```json
+{
+  "profile": { "username": "alice", "member_since": "2026-01-01T00:00:00.000Z" },
+  "bookmarks": [
+    {
+      "id": 1,
+      "title": "PoE2 Leveling Guide",
+      "url": "https://example.com/guide",
+      "description": "...",
+      "favicon_url": "https://...",
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-02T00:00:00.000Z",
+      "tags": [{ "id": 1, "name": "poe2" }, { "id": 2, "name": "guides" }]
+    }
+  ],
+  "tags": [{ "name": "poe2", "count": 3 }, { "name": "guides", "count": 1 }],
+  "appliedTags": ["poe2", "guides"]
+}
+```
+
+`tags` always lists the full public tag set for that user, regardless of any `?tag=` filter applied, so a consumer can discover what other tags are available.
 
 ## Project Structure
 
@@ -215,6 +260,6 @@ In plain English:
 - You cannot bundle it into a paid product or service
 - You cannot make money from it in any way without explicit written permission
 
-Read the full terms in [LICENSE](./LICENSE).
+Read the full terms in [LICENSE.md](./LICENSE.md).
 
 For commercial licensing inquiries, contact `jd@orboro.net`.

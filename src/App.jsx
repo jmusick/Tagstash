@@ -1,16 +1,22 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
+import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
 import { version } from '../package.json'
 import './App.css'
 import { useAuth } from './context/AuthContext'
 import Home from './components/Home'
-import Settings from './components/Settings'
-import PolicyPage from './components/PolicyPage'
-import SupportPage from './components/SupportPage'
-import VerifyEmail from './components/VerifyEmail'
-import ResetPassword from './components/ResetPassword'
-import TagCloud from './components/TagCloud'
+import BookmarkBrowser from './components/BookmarkBrowser'
+import AppHeader from './components/AppHeader'
+import AppFooter from './components/AppFooter'
 import { bookmarksAPI, billingAPI } from './api/api'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Search, Globe, Scissors, FileText, Moon, Sun, Info } from 'lucide-react'
+
+const Settings = lazy(() => import('./components/Settings'))
+const PolicyPage = lazy(() => import('./components/PolicyPage'))
+const SupportPage = lazy(() => import('./components/SupportPage'))
+const VerifyEmail = lazy(() => import('./components/VerifyEmail'))
+const ResetPassword = lazy(() => import('./components/ResetPassword'))
+const PublicProfile = lazy(() => import('./components/PublicProfile'))
+import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
@@ -26,20 +32,6 @@ const normalizeBookmarkUrl = (value) => {
     .trim()
 
   return cleaned ? `https://${cleaned}` : ''
-}
-
-const decodeHtmlEntities = (value) => {
-  if (typeof value !== 'string' || !value) {
-    return value || ''
-  }
-
-  if (typeof document === 'undefined') {
-    return value
-  }
-
-  const textarea = document.createElement('textarea')
-  textarea.innerHTML = value
-  return textarea.value
 }
 
 const ActionInfo = ({ text }) => (
@@ -67,21 +59,10 @@ function App() {
   const [theme, setTheme] = useState(getInitialTheme)
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [activePage, setActivePage] = useState(() => {
-    const path = window.location.pathname
-    if (path === '/verify-email') return 'verify-email'
-    if (path === '/reset-password') return 'reset-password'
-    return 'bookmarks'
-  })
+  const [browserResetKey, setBrowserResetKey] = useState(0)
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
-  const [selectedTags, setSelectedTags] = useState([])
-  const [sortBy, setSortBy] = useState('date')
-  const [sortDirection, setSortDirection] = useState('desc')
-  const [itemsPerPage, setItemsPerPage] = useState(20)
-  const [currentPage, setCurrentPage] = useState(1)
   const [fetchingDescription, setFetchingDescription] = useState(false)
   const [lastFetchedDescriptionUrl, setLastFetchedDescriptionUrl] = useState('')
   const [editingBookmarkId, setEditingBookmarkId] = useState(null)
@@ -143,14 +124,10 @@ function App() {
   }
 
   const handleLogoClick = () => {
-    setActivePage('bookmarks')
-    setSearchTerm('')
-    setShowFavoritesOnly(false)
-    setSelectedTags([])
-    setSortBy('date')
-    setSortDirection('desc')
+    navigate('/')
     setShowAddForm(false)
     setEditingBookmarkId(null)
+    setBrowserResetKey((prev) => prev + 1)
   }
 
   const fetchBookmarks = async () => {
@@ -183,84 +160,6 @@ function App() {
     }
   }
 
-  const sortedBookmarks = useMemo(() => {
-    const items = [...bookmarks]
-
-    switch (sortBy) {
-      case 'lastUpdated':
-        items.sort((a, b) => {
-          const aDate = new Date(a.updated_at || a.created_at || 0)
-          const bDate = new Date(b.updated_at || b.created_at || 0)
-          return bDate - aDate
-        })
-        break
-      case 'alpha':
-        items.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
-        break
-      case 'url':
-        items.sort((a, b) => a.url.localeCompare(b.url, undefined, { sensitivity: 'base' }))
-        break
-      case 'date':
-      default:
-        items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        break
-    }
-
-    if (sortDirection === 'asc') {
-      items.reverse()
-    }
-
-    return items
-  }, [bookmarks, sortBy, sortDirection])
-
-  const filteredBookmarks = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase()
-    return sortedBookmarks.filter((bookmark) => {
-      const tagsText = Array.isArray(bookmark.tags)
-        ? bookmark.tags.map((tag) => tag.name).join(' ')
-        : ''
-
-      const searchable = [
-        decodeHtmlEntities(bookmark.title || ''),
-        bookmark.url || '',
-        decodeHtmlEntities(bookmark.description || ''),
-        tagsText,
-      ]
-        .join(' ')
-        .toLowerCase()
-
-      const matchesSearch = !query || searchable.includes(query)
-
-      const bookmarkTagNames = Array.isArray(bookmark.tags)
-        ? bookmark.tags.map((tag) => tag.name?.toLowerCase()).filter(Boolean)
-        : []
-
-      const matchesTag = selectedTags.length === 0 ||
-        selectedTags.every((selectedTag) => bookmarkTagNames.includes(selectedTag.toLowerCase()))
-
-      const matchesFavorite = !showFavoritesOnly || Boolean(bookmark.is_favorite)
-
-      return matchesSearch && matchesTag && matchesFavorite
-    })
-  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, selectedTags, sortBy, sortDirection, itemsPerPage])
-
-  const totalPages = Math.max(1, Math.ceil(filteredBookmarks.length / itemsPerPage))
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
-
-  const paginatedBookmarks = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return filteredBookmarks.slice(start, start + itemsPerPage)
-  }, [filteredBookmarks, currentPage, itemsPerPage])
-
   const availableTagNames = useMemo(() => {
     const tagNames = bookmarks.flatMap((bookmark) => (
       Array.isArray(bookmark.tags)
@@ -271,20 +170,6 @@ function App() {
     return Array.from(new Set(tagNames)).sort((left, right) => left.localeCompare(right))
   }, [bookmarks])
 
-  const handleTagSelect = (tagName) => {
-    const normalized = tagName?.trim().toLowerCase()
-    if (!normalized) return
-
-    setSelectedTags([normalized])
-  }
-
-  const handleTagAdd = (tagName) => {
-    const normalized = tagName?.trim().toLowerCase()
-    if (!normalized) return
-
-    setSelectedTags((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
-  }
-
   const handleTagFavoriteToggle = async (tag) => {
     if (!tag?.id) return
 
@@ -294,12 +179,6 @@ function App() {
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update favorite tag')
     }
-  }
-
-  const handleTagRemove = (tagName) => {
-    const normalized = tagName?.trim().toLowerCase()
-    if (!normalized) return
-    setSelectedTags((prev) => prev.filter((tag) => tag !== normalized))
   }
 
   const parseTags = (raw) => (
@@ -550,14 +429,20 @@ function App() {
     }
   }
 
-  const handleBookmarkFavoriteToggle = async (id) => {
+  const handleBookmarkToggle = async (apiCall, id, fallbackErrorMessage) => {
     try {
-      await bookmarksAPI.toggleFavorite(id)
+      await apiCall(id)
       fetchBookmarks()
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update bookmark favorite')
+      setError(err.response?.data?.error || fallbackErrorMessage)
     }
   }
+
+  const handleBookmarkFavoriteToggle = (id) =>
+    handleBookmarkToggle(bookmarksAPI.toggleFavorite, id, 'Failed to update bookmark favorite')
+
+  const handleBookmarkPrivateToggle = (id) =>
+    handleBookmarkToggle(bookmarksAPI.togglePrivate, id, 'Failed to update bookmark privacy')
 
   const handleStartEdit = (bookmark) => {
     setError('')
@@ -693,6 +578,210 @@ function App() {
     }
   }
 
+  const renderOwnerCard = (bookmark) => {
+    const isEditing = editingBookmarkId === bookmark.id
+    const isFavorite = Boolean(bookmark.is_favorite)
+    const isPrivate = Boolean(bookmark.is_private)
+    const faviconSrc = isEditing
+      ? (getFaviconPreviewUrl(editFormData.url) || bookmark.favicon_url)
+      : bookmark.favicon_url
+    const displayTitle = decodeHtmlEntities(bookmark.title || '')
+    const displayDescription = decodeHtmlEntities(bookmark.description || '')
+
+    return (
+      <div className="bookmark-card">
+        <div className="bookmark-header">
+          {faviconSrc && (
+            <img
+              src={faviconSrc}
+              alt="favicon"
+              className="favicon"
+              onError={(e) => e.target.style.display = 'none'}
+            />
+          )}
+          <h3>{displayTitle}</h3>
+          <div className="bookmark-actions">
+            <button
+              type="button"
+              onClick={() => handleStartEdit(bookmark)}
+              className="edit-btn"
+              title="Edit bookmark"
+            >
+              <Pencil size={14} />
+              <span>Edit</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBookmarkFavoriteToggle(bookmark.id)}
+              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+              title={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
+              aria-label={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
+            >
+              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBookmarkPrivateToggle(bookmark.id)}
+              className={`private-btn ${isPrivate ? 'active' : ''}`}
+              title={isPrivate ? 'Make bookmark public' : 'Mark bookmark private'}
+              aria-label={isPrivate ? 'Make bookmark public' : 'Mark bookmark private'}
+            >
+              {isPrivate ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+            <button
+              onClick={() => handleDelete(bookmark.id)}
+              className="delete-btn"
+              title="Delete bookmark"
+              aria-label="Delete bookmark"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+        {isEditing ? (
+          <div className="bookmark-edit-form">
+            <div className="form-group">
+              <div className="field-header">
+                <label htmlFor={`edit-title-${bookmark.id}`}>Title</label>
+                <button
+                  type="button"
+                  className="btn-field-action"
+                  onClick={handleFetchEditTitle}
+                  disabled={!editFormData.url.trim() || fetchingEditTitle}
+                >
+                  <RefreshCw size={13} />
+                  <span>{fetchingEditTitle ? 'Fetching...' : 'Fetch Title'}</span>
+                  <ActionInfo text="Attempts to read page metadata and replace the title field with the page title." />
+                </button>
+              </div>
+              <input
+                id={`edit-title-${bookmark.id}`}
+                type="text"
+                name="title"
+                value={editFormData.title}
+                onChange={handleEditInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <div className="field-header">
+                <label htmlFor={`edit-url-${bookmark.id}`}>URL</label>
+                {editFormData.url && (
+                  <div className="field-actions">
+                    <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
+                      <Globe size={13} /><span>Base URL</span>
+                      <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
+                    </button>
+                    <button type="button" className="btn-field-action" onClick={handleEditTrimUrl}>
+                      <Scissors size={13} /><span>Trim URL</span>
+                      <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <input
+                id={`edit-url-${bookmark.id}`}
+                type="url"
+                name="url"
+                value={editFormData.url}
+                onChange={handleEditInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <div className="field-header">
+                <label htmlFor={`edit-description-${bookmark.id}`}>Description</label>
+                <button
+                  type="button"
+                  className="btn-field-action"
+                  onClick={handleFetchEditDescription}
+                  disabled={!editFormData.url.trim() || fetchingEditDescription}
+                >
+                  <FileText size={13} /><span>{fetchingEditDescription ? 'Fetching...' : 'Fetch From Site'}</span>
+                  <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
+                </button>
+              </div>
+              <textarea
+                id={`edit-description-${bookmark.id}`}
+                name="description"
+                value={editFormData.description}
+                onChange={handleEditInputChange}
+                rows="3"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor={`edit-tags-${bookmark.id}`}>Tags</label>
+              <div className="tag-input-shell">
+                {parseTags(editFormData.tags).map((tag) => (
+                  <span key={tag} className="tag-input-pill">
+                    <span>{tag}</span>
+                    <button
+                      type="button"
+                      className="tag-pill-remove"
+                      aria-label={`Remove tag ${tag}`}
+                      onClick={() => removeEditTag(tag)}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id={`edit-tags-${bookmark.id}`}
+                  type="text"
+                  value={editTagDraft}
+                  onChange={(e) => setEditTagDraft(e.target.value)}
+                  onKeyDown={handleEditTagDraftKeyDown}
+                  placeholder="Type tag, press comma"
+                />
+              </div>
+              {editTagSuggestion && (
+                <div className="tag-input-suggestion" aria-live="polite">
+                  Press Tab to use <strong>{editTagSuggestion}</strong>
+                </div>
+              )}
+              <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
+            </div>
+            <div className="bookmark-edit-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => handleSaveEdit(bookmark.id)}
+                disabled={savingEdit}
+              >
+                {savingEdit ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleCancelEdit}
+                disabled={savingEdit}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
+              {bookmark.url}
+            </a>
+            {displayDescription && (
+              <p className="bookmark-description">{displayDescription}</p>
+            )}
+            <div className="tags">
+              {bookmark.tags && bookmark.tags.length > 0 && bookmark.tags.map((tag) => (
+                <span key={tag.id} className="tag">{tag.name}</span>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="bookmark-footer">
+          <small>Added {new Date(bookmark.created_at).toLocaleDateString()}</small>
+        </div>
+      </div>
+    )
+  }
+
   if (authLoading) {
     return (
       <div className="loading-container">
@@ -701,123 +790,106 @@ function App() {
     )
   }
 
-  if (activePage === 'privacy') {
-    return (
-      <PolicyPage
-        logoSrc={logoSrc}
-        onBack={() => setActivePage(user ? 'bookmarks' : 'home')}
-      />
-    )
-  }
-
-  if (activePage === 'support') {
-    return (
-      <SupportPage
-        logoSrc={logoSrc}
-        prefillEmail={user?.email || ''}
-        onBack={() => setActivePage(user ? 'bookmarks' : 'home')}
-      />
-    )
-  }
-
-  if (activePage === 'verify-email') {
-    return <VerifyEmail logoSrc={logoSrc} />
-  }
-
-  if (activePage === 'reset-password') {
-    return <ResetPassword logoSrc={logoSrc} />
-  }
-
-  if (!user) {
-    return <Home logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} onNavigate={setActivePage} />
-  }
-
-  if (activePage === 'settings') {
-    return (
-      <div className="app">
-        <header className="app-header">
-          <div className="app-header-brand">
-            <button type="button" className="app-header-logo-btn" onClick={handleLogoClick} title="Back to bookmarks">
-              <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
-            </button>
-            <p className="app-header-tagline">Your tag-based bookmarking companion</p>
-          </div>
-          <div className="user-info">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="theme-toggle-btn"
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <span>Welcome, {user.username}!</span>
-            <button
-              onClick={() => { setActivePage('bookmarks'); fetchBookmarks(); }}
-              className="btn-secondary"
-              title="Back to bookmarks"
-            >
-              <SettingsIcon size={16} className="btn-icon" />
-              <span>Bookmarks</span>
-            </button>
-            <button onClick={logout} className="btn-secondary">
-              Logout
-            </button>
-          </div>
-        </header>
-
-        <main className="app-main settings-page-main">
-          <div className="main-content settings-page-content">
-            <Settings pageMode onImportComplete={fetchBookmarks} />
-          </div>
-        </main>
-        <footer className="app-footer">
-          <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
-          <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
-          <button className="footer-privacy-link" onClick={() => setActivePage('support')}>Support</button>
-          <span className="version">v{version}</span>
-        </footer>
-      </div>
-    )
-  }
+  const homeElement = (
+    <Home logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} onNavigate={(page) => navigate('/' + page)} />
+  )
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-header-brand">
-          <button type="button" className="app-header-logo-btn" onClick={handleLogoClick} title="Back to bookmarks">
-            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
-          </button>
-          <p className="app-header-tagline">Your tag-based bookmarking companion</p>
-        </div>
-        <div className="user-info">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="theme-toggle-btn"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <span>Welcome, {user.username}!</span>
-          <button 
-            onClick={() => setActivePage('settings')} 
-            className="btn-secondary"
-            title="Open settings"
-          >
-            <SettingsIcon size={16} className="btn-icon" />
-            <span>Settings</span>
-          </button>
-          <button onClick={logout} className="btn-secondary">
-            Logout
-          </button>
-        </div>
-      </header>
+    <Suspense fallback={<div className="loading-container"><p>Loading...</p></div>}>
+      <Routes>
+        <Route path="/verify-email" element={<VerifyEmail logoSrc={logoSrc} />} />
+        <Route path="/reset-password" element={<ResetPassword logoSrc={logoSrc} />} />
+        <Route path="/u/:username" element={<PublicProfile logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} />} />
+        <Route path="/privacy" element={<PolicyPage logoSrc={logoSrc} onBack={() => navigate('/')} />} />
+        <Route
+          path="/support"
+          element={<SupportPage logoSrc={logoSrc} prefillEmail={user?.email || ''} onBack={() => navigate('/')} />}
+        />
+        <Route
+          path="/settings"
+          element={
+            user ? (
+              <div className="app">
+                <AppHeader
+                  logoSrc={logoSrc}
+                  tagline="Your tag-based bookmarking companion"
+                  onLogoClick={handleLogoClick}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                >
+                  <span>Welcome, {user.username}!</span>
+                  <button
+                    onClick={() => { navigate('/'); fetchBookmarks(); }}
+                    className="btn-secondary"
+                    title="Back to bookmarks"
+                  >
+                    <SettingsIcon size={16} className="btn-icon" />
+                    <span>Bookmarks</span>
+                  </button>
+                  <button onClick={logout} className="btn-secondary">
+                    Logout
+                  </button>
+                </AppHeader>
 
-      <main className="app-main">
-        <div className="main-content">
+                <main className="app-main settings-page-main">
+                  <div className="main-content settings-page-content">
+                    <Settings pageMode onImportComplete={fetchBookmarks} />
+                  </div>
+                </main>
+                <AppFooter>
+                  <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
+                  <Link className="footer-privacy-link" to="/support">Support</Link>
+                  <span className="version">v{version}</span>
+                </AppFooter>
+              </div>
+            ) : homeElement
+          }
+        />
+        <Route
+          path="/"
+          element={
+            user ? (
+              <div className="app">
+                <AppHeader
+                  logoSrc={logoSrc}
+                  tagline="Your tag-based bookmarking companion"
+                  onLogoClick={handleLogoClick}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                >
+                  <span>Welcome, {user.username}!</span>
+                  <button
+                    onClick={() => navigate('/settings')}
+                    className="btn-secondary"
+                    title="Open settings"
+                  >
+                    <SettingsIcon size={16} className="btn-icon" />
+                    <span>Settings</span>
+                  </button>
+                  <button onClick={logout} className="btn-secondary">
+                    Logout
+                  </button>
+                </AppHeader>
+
+                <main className="app-main">
+                  <BookmarkBrowser
+                    key={browserResetKey}
+                    bookmarks={bookmarks}
+                    loading={loading}
+                    tagsRefreshKey={tagsRefreshKey}
+                    onTagFavoriteToggle={handleTagFavoriteToggle}
+                    renderCard={renderOwnerCard}
+                    toolbarExtra={(
+            <button
+              className="btn-primary"
+              onClick={() => setShowAddForm(!showAddForm)}
+              disabled={isFreeLimitReached && !showAddForm}
+            >
+              {!showAddForm && <Plus size={16} className="btn-icon" />}
+              <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
+            </button>
+          )}
+        >
           {billingMessage === 'success' && (
             <div className="billing-banner billing-banner--success">
               <span>Your subscription is now active ΓÇö welcome to Pro!</span>
@@ -834,539 +906,192 @@ function App() {
               </button>
             </div>
           )}
-          <div className="toolbar">
-            <div className="sort-control">
-              <label htmlFor="sortBy">Sort by</label>
-              <select
-                id="sortBy"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="date">Date saved (newest)</option>
-                <option value="lastUpdated">Last updated</option>
-                <option value="alpha">Alphabetical (A-Z)</option>
-                <option value="url">URL (A-Z)</option>
-              </select>
-              <select
-                id="sortDirection"
-                aria-label="Sort direction"
-                value={sortDirection}
-                onChange={(e) => setSortDirection(e.target.value)}
-              >
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
-              </select>
-            </div>
-            <div className="search-control">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search bookmarks"
-                aria-label="Search bookmarks"
-              />
-              <button
-                type="button"
-                className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
-                onClick={() => setShowFavoritesOnly((prev) => !prev)}
-                aria-label={showFavoritesOnly ? 'Show all bookmarks' : 'Show favorite bookmarks only'}
-                title={showFavoritesOnly ? 'Showing favorites only' : 'Show favorite bookmarks only'}
-                aria-pressed={showFavoritesOnly}
-              >
-                <Star size={16} fill={showFavoritesOnly ? 'currentColor' : 'none'} />
+
+          {error && (
+            <div className="error-message">
+              {error}
+              <button onClick={() => setError('')} className="error-close" aria-label="Dismiss error">
+                <X size={16} />
               </button>
             </div>
-            <button 
-              className="btn-primary"
-              onClick={() => setShowAddForm(!showAddForm)}
-              disabled={isFreeLimitReached && !showAddForm}
-            >
-              {!showAddForm && <Plus size={16} className="btn-icon" />}
-              <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
-            </button>
-          </div>
+          )}
 
-        {error && (
-          <div className="error-message">
-            {error}
-            <button onClick={() => setError('')} className="error-close" aria-label="Dismiss error">
-              <X size={16} />
-            </button>
-          </div>
-        )}
-
-        {showAddForm && (
-          <div className="add-bookmark-form">
-            <h2>Add New Bookmark</h2>
-            {isFreeLimitReached && (
-              <p className="usage-limit-warning">
-                Free plan limit reached ({FREE_BOOKMARK_LIMIT} bookmarks). Upgrade to paid to continue adding bookmarks.
-              </p>
-            )}
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <div className="field-header">
-                  <label htmlFor="url">URL *</label>
-                  {formData.url && (
-                    <div className="field-actions">
-                      <button type="button" className="btn-field-action" onClick={handleBaseUrl}>
-                        <Globe size={13} /><span>Base URL</span>
-                        <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
-                      </button>
-                      <button type="button" className="btn-field-action" onClick={handleTrimUrl}>
-                        <Scissors size={13} /><span>Trim URL</span>
-                        <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <input
-                  type="url"
-                  id="url"
-                  name="url"
-                  value={formData.url}
-                  onChange={handleInputChange}
-                  onBlur={() => handleFetchDescription(false)}
-                  placeholder="https://example.com"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="title">Title *</label>
-                <input 
-                  type="text" 
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="My Awesome Bookmark"
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="tags">Tags</label>
-                <div className="tag-input-shell">
-                  {parseTags(formData.tags).map((tag) => (
-                    <span key={tag} className="tag-input-pill">
-                      <span>{tag}</span>
-                      <button
-                        type="button"
-                        className="tag-pill-remove"
-                        aria-label={`Remove tag ${tag}`}
-                        onClick={() => removeAddTag(tag)}
-                      >
-                        x
-                      </button>
-                    </span>
-                  ))}
+          {showAddForm && (
+            <div className="add-bookmark-form">
+              <h2>Add New Bookmark</h2>
+              {isFreeLimitReached && (
+                <p className="usage-limit-warning">
+                  Free plan limit reached ({FREE_BOOKMARK_LIMIT} bookmarks). Upgrade to paid to continue adding bookmarks.
+                </p>
+              )}
+              <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <div className="field-header">
+                    <label htmlFor="url">URL *</label>
+                    {formData.url && (
+                      <div className="field-actions">
+                        <button type="button" className="btn-field-action" onClick={handleBaseUrl}>
+                          <Globe size={13} /><span>Base URL</span>
+                          <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
+                        </button>
+                        <button type="button" className="btn-field-action" onClick={handleTrimUrl}>
+                          <Scissors size={13} /><span>Trim URL</span>
+                          <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <input
-                    type="text"
-                    id="tags"
-                    value={tagDraft}
-                    onChange={(e) => setTagDraft(e.target.value)}
-                    onKeyDown={handleAddTagDraftKeyDown}
-                    placeholder="Type tag, press comma"
+                    type="url"
+                    id="url"
+                    name="url"
+                    value={formData.url}
+                    onChange={handleInputChange}
+                    onBlur={() => handleFetchDescription(false)}
+                    placeholder="https://example.com"
+                    required
                   />
                 </div>
-                {addTagSuggestion && (
-                  <div className="tag-input-suggestion" aria-live="polite">
-                    Press Tab to use <strong>{addTagSuggestion}</strong>
+                <div className="form-group">
+                  <label htmlFor="title">Title *</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="My Awesome Bookmark"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="tags">Tags</label>
+                  <div className="tag-input-shell">
+                    {parseTags(formData.tags).map((tag) => (
+                      <span key={tag} className="tag-input-pill">
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          className="tag-pill-remove"
+                          aria-label={`Remove tag ${tag}`}
+                          onClick={() => removeAddTag(tag)}
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      id="tags"
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={handleAddTagDraftKeyDown}
+                      placeholder="Type tag, press comma"
+                    />
                   </div>
-                )}
-                <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
-              </div>
-              <div className="form-group">
-                <div className="field-header">
-                  <label htmlFor="description">Description (optional)</label>
+                  {addTagSuggestion && (
+                    <div className="tag-input-suggestion" aria-live="polite">
+                      Press Tab to use <strong>{addTagSuggestion}</strong>
+                    </div>
+                  )}
+                  <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
+                </div>
+                <div className="form-group">
+                  <div className="field-header">
+                    <label htmlFor="description">Description (optional)</label>
+                    <button
+                      type="button"
+                      className="btn-field-action"
+                      onClick={() => handleFetchDescription(true)}
+                      disabled={!formData.url.trim() || fetchingDescription}
+                    >
+                      <FileText size={13} /><span>{fetchingDescription ? 'Fetching...' : 'Fetch From Site'}</span>
+                      <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
+                    </button>
+                  </div>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    rows="3"
+                    placeholder="Brief description of this bookmark"
+                  ></textarea>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary">Save Bookmark</button>
                   <button
                     type="button"
-                    className="btn-field-action"
-                    onClick={() => handleFetchDescription(true)}
-                    disabled={!formData.url.trim() || fetchingDescription}
+                    className="btn-secondary"
+                    onClick={() => {
+                      setShowAddForm(false)
+                      setFormData({ title: '', url: '', tags: '', description: '' })
+                      setTagDraft('')
+                    }}
                   >
-                    <FileText size={13} /><span>{fetchingDescription ? 'Fetching...' : 'Fetch From Site'}</span>
-                    <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
+                    Cancel
                   </button>
                 </div>
-                <textarea 
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  placeholder="Brief description of this bookmark"
-                ></textarea>
-              </div>
-              <div className="form-actions">
-                <button type="submit" className="btn-primary">Save Bookmark</button>
-                <button 
-                  type="button" 
-                  className="btn-secondary"
-                  onClick={() => {
-                    setShowAddForm(false)
-                    setFormData({ title: '', url: '', tags: '', description: '' })
-                    setTagDraft('')
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {!isPaidMember && (
-          <section className="membership-summary membership-summary-free">
-            <div className="membership-summary-head">
-              <strong>Free Plan</strong>
-              <span>{bookmarkUsageCount} / {FREE_BOOKMARK_LIMIT} bookmarks used</span>
-            </div>
-            <div className="usage-meter" aria-hidden="true">
-              <div className="usage-meter-bar" style={{ width: `${freeUsagePercent}%` }} />
-            </div>
-            <div className="membership-summary-actions">
-              <div className="upgrade-plan-toggle" role="group" aria-label="Choose billing plan">
-                <button
-                  type="button"
-                  className={`upgrade-plan-btn ${usageUpgradePlan === 'monthly' ? 'active' : ''}`}
-                  onClick={() => setUsageUpgradePlan('monthly')}
-                  disabled={startingUpgrade}
-                >
-                  Monthly
-                </button>
-                <button
-                  type="button"
-                  className={`upgrade-plan-btn ${usageUpgradePlan === 'annual' ? 'active' : ''}`}
-                  onClick={() => setUsageUpgradePlan('annual')}
-                  disabled={startingUpgrade}
-                >
-                  Annual
-                </button>
-              </div>
-              <button
-                type="button"
-                className="upgrade-placeholder-link"
-                onClick={handleUpgradeFromUsageCard}
-                disabled={startingUpgrade}
-              >
-                {startingUpgrade ? 'Opening checkout...' : `Upgrade (${usageUpgradePlan === 'monthly' ? 'Monthly' : 'Annual'})`}
-              </button>
-            </div>
-            {isFreeLimitReached && (
-              <p className="usage-limit-warning">You reached the free limit. Upgrade to paid to keep adding bookmarks.</p>
-            )}
-          </section>
-        )}
-
-        <div className="bookmarks-section">
-          {filteredBookmarks.length > 0 && (
-            <div className="pagination-toolbar">
-              <div className="pagination-page-size">
-                <label htmlFor="itemsPerPage">Show</label>
-                <select
-                  id="itemsPerPage"
-                  value={itemsPerPage}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={40}>40</option>
-                  <option value={80}>80</option>
-                </select>
-              </div>
-              <div className="pagination-controls">
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </button>
-                <span className="pagination-status">Page {currentPage} of {totalPages}</span>
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </button>
-              </div>
+              </form>
             </div>
           )}
-          {loading ? (
-            <div className="loading-message">Loading bookmarks...</div>
-          ) : filteredBookmarks.length === 0 ? (
-            <div className="empty-state">
-              <p>
-                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly
-                  ? 'No bookmarks match your search.'
-                  : 'No bookmarks yet. Add your first one to get started!'}
-              </p>
-            </div>
-          ) : (
-            <>
-            <div className="bookmarks-grid">
-              {paginatedBookmarks.map((bookmark) => {
-                const isEditing = editingBookmarkId === bookmark.id
-                const isFavorite = Boolean(bookmark.is_favorite)
-                const faviconSrc = isEditing
-                  ? (getFaviconPreviewUrl(editFormData.url) || bookmark.favicon_url)
-                  : bookmark.favicon_url
-                const displayTitle = decodeHtmlEntities(bookmark.title || '')
-                const displayDescription = decodeHtmlEntities(bookmark.description || '')
 
-                return (
-                <div key={bookmark.id} className="bookmark-card">
-                  <div className="bookmark-header">
-                    {faviconSrc && (
-                      <img 
-                        src={faviconSrc}
-                        alt="favicon" 
-                        className="favicon"
-                        onError={(e) => e.target.style.display = 'none'}
-                      />
-                    )}
-                    <h3>{displayTitle}</h3>
-                    <div className="bookmark-actions">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(bookmark)}
-                        className="edit-btn"
-                        title="Edit bookmark"
-                      >
-                        <Pencil size={14} />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleBookmarkFavoriteToggle(bookmark.id)}
-                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                        title={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
-                        aria-label={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
-                      >
-                        <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(bookmark.id)} 
-                        className="delete-btn"
-                        title="Delete bookmark"
-                        aria-label="Delete bookmark"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  {isEditing ? (
-                    <div className="bookmark-edit-form">
-                      <div className="form-group">
-                        <div className="field-header">
-                          <label htmlFor={`edit-title-${bookmark.id}`}>Title</label>
-                          <button
-                            type="button"
-                            className="btn-field-action"
-                            onClick={handleFetchEditTitle}
-                            disabled={!editFormData.url.trim() || fetchingEditTitle}
-                          >
-                            <RefreshCw size={13} />
-                            <span>{fetchingEditTitle ? 'Fetching...' : 'Fetch Title'}</span>
-                            <ActionInfo text="Attempts to read page metadata and replace the title field with the page title." />
-                          </button>
-                        </div>
-                        <input
-                          id={`edit-title-${bookmark.id}`}
-                          type="text"
-                          name="title"
-                          value={editFormData.title}
-                          onChange={handleEditInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <div className="field-header">
-                          <label htmlFor={`edit-url-${bookmark.id}`}>URL</label>
-                          {editFormData.url && (
-                            <div className="field-actions">
-                              <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
-                                <Globe size={13} /><span>Base URL</span>
-                                <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
-                              </button>
-                              <button type="button" className="btn-field-action" onClick={handleEditTrimUrl}>
-                                <Scissors size={13} /><span>Trim URL</span>
-                                <ActionInfo text="Keeps protocol + domain + path, and removes query string and hash fragments. Example: https://example.com/docs/page?ref=nav#intro becomes https://example.com/docs/page." />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          id={`edit-url-${bookmark.id}`}
-                          type="url"
-                          name="url"
-                          value={editFormData.url}
-                          onChange={handleEditInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <div className="field-header">
-                          <label htmlFor={`edit-description-${bookmark.id}`}>Description</label>
-                          <button
-                            type="button"
-                            className="btn-field-action"
-                            onClick={handleFetchEditDescription}
-                            disabled={!editFormData.url.trim() || fetchingEditDescription}
-                          >
-                            <FileText size={13} /><span>{fetchingEditDescription ? 'Fetching...' : 'Fetch From Site'}</span>
-                            <ActionInfo text="Attempts to read the page metadata and fill the description field. If a site blocks scraping, this may fail." />
-                          </button>
-                        </div>
-                        <textarea
-                          id={`edit-description-${bookmark.id}`}
-                          name="description"
-                          value={editFormData.description}
-                          onChange={handleEditInputChange}
-                          rows="3"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor={`edit-tags-${bookmark.id}`}>Tags</label>
-                        <div className="tag-input-shell">
-                          {parseTags(editFormData.tags).map((tag) => (
-                            <span key={tag} className="tag-input-pill">
-                              <span>{tag}</span>
-                              <button
-                                type="button"
-                                className="tag-pill-remove"
-                                aria-label={`Remove tag ${tag}`}
-                                onClick={() => removeEditTag(tag)}
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))}
-                          <input
-                            id={`edit-tags-${bookmark.id}`}
-                            type="text"
-                            value={editTagDraft}
-                            onChange={(e) => setEditTagDraft(e.target.value)}
-                            onKeyDown={handleEditTagDraftKeyDown}
-                            placeholder="Type tag, press comma"
-                          />
-                        </div>
-                        {editTagSuggestion && (
-                          <div className="tag-input-suggestion" aria-live="polite">
-                            Press Tab to use <strong>{editTagSuggestion}</strong>
-                          </div>
-                        )}
-                        <small>Press Comma or Space to lock in a new tag &middot; Enter to save</small>
-                      </div>
-                      <div className="bookmark-edit-actions">
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          onClick={() => handleSaveEdit(bookmark.id)}
-                          disabled={savingEdit}
-                        >
-                          {savingEdit ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={handleCancelEdit}
-                          disabled={savingEdit}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
-                        {bookmark.url}
-                      </a>
-                      {displayDescription && (
-                        <p className="bookmark-description">{displayDescription}</p>
-                      )}
-                      <div className="tags">
-                        {bookmark.tags && bookmark.tags.length > 0 && bookmark.tags.map((tag) => (
-                          <span key={tag.id} className="tag">{tag.name}</span>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  <div className="bookmark-footer">
-                    <small>Added {new Date(bookmark.created_at).toLocaleDateString()}</small>
-                  </div>
+          {!isPaidMember && (
+            <section className="membership-summary membership-summary-free">
+              <div className="membership-summary-head">
+                <strong>Free Plan</strong>
+                <span>{bookmarkUsageCount} / {FREE_BOOKMARK_LIMIT} bookmarks used</span>
+              </div>
+              <div className="usage-meter" aria-hidden="true">
+                <div className="usage-meter-bar" style={{ width: `${freeUsagePercent}%` }} />
+              </div>
+              <div className="membership-summary-actions">
+                <div className="upgrade-plan-toggle" role="group" aria-label="Choose billing plan">
+                  <button
+                    type="button"
+                    className={`upgrade-plan-btn ${usageUpgradePlan === 'monthly' ? 'active' : ''}`}
+                    onClick={() => setUsageUpgradePlan('monthly')}
+                    disabled={startingUpgrade}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    className={`upgrade-plan-btn ${usageUpgradePlan === 'annual' ? 'active' : ''}`}
+                    onClick={() => setUsageUpgradePlan('annual')}
+                    disabled={startingUpgrade}
+                  >
+                    Annual
+                  </button>
                 </div>
-                )
-              })}
-            </div>
-            <div className="pagination-toolbar pagination-toolbar-bottom">
-              <div className="pagination-controls">
                 <button
                   type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
+                  className="upgrade-placeholder-link"
+                  onClick={handleUpgradeFromUsageCard}
+                  disabled={startingUpgrade}
                 >
-                  Previous
-                </button>
-                <span className="pagination-status">Page {currentPage} of {totalPages}</span>
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
+                  {startingUpgrade ? 'Opening checkout...' : `Upgrade (${usageUpgradePlan === 'monthly' ? 'Monthly' : 'Annual'})`}
                 </button>
               </div>
-            </div>
-            </>
+              {isFreeLimitReached && (
+                <p className="usage-limit-warning">You reached the free limit. Upgrade to paid to keep adding bookmarks.</p>
+              )}
+            </section>
           )}
-        </div>
-        </div>
-
-        <aside className="sidebar">
-          {selectedTags.length > 0 && (
-            <div className="active-tag-filter sidebar-tag-filter">
-              <div className="active-tag-filter-head">
-                <span>Tag Query</span>
-                <button type="button" onClick={() => setSelectedTags([])} aria-label="Clear all tag filters">
-                  <X size={14} />
-                </button>
+                  </BookmarkBrowser>
+                </main>
+                <AppFooter>
+                  <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
+                  <Link className="footer-privacy-link" to="/support">Support</Link>
+                  <span className="version">v{version}</span>
+                </AppFooter>
               </div>
-              <div className="active-tag-filter-list">
-                {selectedTags.map((tag) => (
-                  <span key={tag} className="active-tag-filter-item">
-                    <span>{tag}</span>
-                    <button type="button" onClick={() => handleTagRemove(tag)} aria-label={`Remove ${tag} from tag query`}>
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          <TagCloud
-            selectedTags={selectedTags}
-            onTagSelect={handleTagSelect}
-            onTagAdd={handleTagAdd}
-            onTagFavoriteToggle={handleTagFavoriteToggle}
-            refreshKey={tagsRefreshKey}
-          />
-        </aside>
-      </main>
-      <footer className="app-footer">
-        <span className="footer-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
-        <button className="footer-privacy-link" onClick={() => setActivePage('privacy')}>Privacy Policy</button>
-        <button className="footer-privacy-link" onClick={() => setActivePage('support')}>Support</button>
-        <span className="version">v{version}</span>
-      </footer>
-
-    </div>
+            ) : homeElement
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 

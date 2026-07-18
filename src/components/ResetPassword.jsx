@@ -44,10 +44,7 @@ function ResetPassword({ logoSrc }) {
     <div className="auth-container">
       <div className="auth-card">
         <h1 className="auth-title">
-          <picture>
-            <source srcSet="/tagstash-logo-light.svg" media="(prefers-color-scheme: light)" />
-            <img src={logoSrc} alt="Tagstash" className="auth-title-logo" />
-          </picture>
+          <img src={logoSrc} alt="Tagstash" className="auth-title-logo" />
         </h1>
 
         {!token ? (

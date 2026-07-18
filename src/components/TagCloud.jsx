@@ -3,8 +3,9 @@ import { bookmarksAPI } from '../api/api';
 import { Tag, Search, Plus, Star } from 'lucide-react';
 import './TagCloud.css';
 
-function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0 }) {
-  const [tags, setTags] = useState([]);
+function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0 }) {
+  const selfManaged = providedTags === undefined;
+  const [fetchedTags, setFetchedTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
 
@@ -12,7 +13,7 @@ function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggl
     try {
       setLoading(true);
       const response = await bookmarksAPI.getAllTags();
-      setTags(response.data.tags);
+      setFetchedTags(response.data.tags);
     } catch (error) {
       console.error('Failed to fetch tags:', error);
     } finally {
@@ -21,8 +22,12 @@ function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggl
   }, []);
 
   useEffect(() => {
-    fetchTags();
-  }, [refreshKey, fetchTags]);
+    if (selfManaged) {
+      fetchTags();
+    }
+  }, [selfManaged, refreshKey, fetchTags]);
+
+  const tags = selfManaged ? fetchedTags : providedTags;
 
   const getTagSize = (index, totalTags) => {
     // Distribute tags in 3 size categories
@@ -76,7 +81,7 @@ function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggl
 
             return (
               <div
-                key={tag.id}
+                key={tag.id ?? tag.name}
                 className={`tag-cloud-item tag-size-${getTagSize(index, visibleTags.length)} ${isSelected ? 'active' : ''}`}
                 title={`${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
                 role="button"
@@ -103,18 +108,20 @@ function TagCloud({ selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggl
                   >
                     <Plus size={14} />
                   </button>
-                  <button
-                    type="button"
-                    className={`tag-cloud-chip-star ${isFavorite ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTagFavoriteToggle?.(tag);
-                    }}
-                    title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
-                    aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
-                  >
-                    <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
-                  </button>
+                  {onTagFavoriteToggle && (
+                    <button
+                      type="button"
+                      className={`tag-cloud-chip-star ${isFavorite ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTagFavoriteToggle(tag);
+                      }}
+                      title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                      aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                    >
+                      <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+                    </button>
+                  )}
                 </span>
                 <span className="tag-name">{tag.name}</span>
                 <span className="tag-badge">{tag.count}</span>
