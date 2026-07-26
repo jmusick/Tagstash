@@ -244,6 +244,119 @@
   width: 100%;
 }
 
+.tags-page-section {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+
+.tags-page-section h2 {
+  margin: 0 0 0.5rem;
+}
+
+.tags-page-description {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+  max-width: 60ch;
+}
+
+.tag-merge-picker {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.tag-merge-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.tag-merge-slot-label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.tag-merge-slot-empty {
+  color: var(--color-placeholder);
+  font-size: 0.92rem;
+}
+
+.tag-merge-arrow {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.tag-merge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-tag-start), var(--color-tag-end));
+}
+
+.tag-merge-chip button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tag-merge-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.92rem;
+}
+
+.tag-merge-preview svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.tag-merge-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.tags-page-success {
+  background-color: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -442,6 +555,20 @@
   flex-shrink: 0;
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
+}
+
+.toolbar .refresh-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.refresh-btn.spinning .btn-icon {
+  animation: spin 0.7s linear infinite;
 }
 
 .btn-icon {

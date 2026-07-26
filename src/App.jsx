@@ -10,13 +10,14 @@ import AppFooter from './components/AppFooter'
 import { bookmarksAPI, billingAPI } from './api/api'
 
 const Settings = lazy(() => import('./components/Settings'))
+const TagsPage = lazy(() => import('./components/TagsPage'))
 const PolicyPage = lazy(() => import('./components/PolicyPage'))
 const SupportPage = lazy(() => import('./components/SupportPage'))
 const VerifyEmail = lazy(() => import('./components/VerifyEmail'))
 const ResetPassword = lazy(() => import('./components/ResetPassword'))
 const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
@@ -62,6 +63,7 @@ function App() {
   const [browserResetKey, setBrowserResetKey] = useState(0)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [fetchingDescription, setFetchingDescription] = useState(false)
   const [lastFetchedDescriptionUrl, setLastFetchedDescriptionUrl] = useState('')
@@ -119,6 +121,19 @@ function App() {
     }
   }, [user])
 
+  // Bookmarks saved via the browser extension don't push updates to this tab,
+  // so poll quietly in the background (mirrors the extension sidebar's own refresh interval).
+  useEffect(() => {
+    if (!user) return
+
+    const interval = setInterval(() => {
+      fetchBookmarks({ silent: true })
+      setTagsRefreshKey((prev) => prev + 1)
+    }, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [user])
+
   const toggleTheme = () => {
     setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
   }
@@ -130,16 +145,26 @@ function App() {
     setBrowserResetKey((prev) => prev + 1)
   }
 
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = async ({ silent = false } = {}) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response = await bookmarksAPI.getAll()
       setBookmarks(response.data.bookmarks)
     } catch (err) {
       setError('Failed to fetch bookmarks')
       console.error(err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
+    }
+  }
+
+  const handleRefreshBookmarks = async () => {
+    setRefreshing(true)
+    try {
+      await fetchBookmarks({ silent: true })
+      setTagsRefreshKey((prev) => prev + 1)
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -846,6 +871,46 @@ function App() {
           }
         />
         <Route
+          path="/tags"
+          element={
+            user ? (
+              <div className="app">
+                <AppHeader
+                  logoSrc={logoSrc}
+                  tagline="Your tag-based bookmarking companion"
+                  onLogoClick={handleLogoClick}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                >
+                  <span>Welcome, {user.username}!</span>
+                  <button
+                    onClick={() => { navigate('/'); fetchBookmarks(); }}
+                    className="btn-secondary"
+                    title="Back to bookmarks"
+                  >
+                    <SettingsIcon size={16} className="btn-icon" />
+                    <span>Bookmarks</span>
+                  </button>
+                  <button onClick={logout} className="btn-secondary">
+                    Logout
+                  </button>
+                </AppHeader>
+
+                <main className="app-main settings-page-main">
+                  <div className="main-content settings-page-content">
+                    <TagsPage />
+                  </div>
+                </main>
+                <AppFooter>
+                  <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
+                  <Link className="footer-privacy-link" to="/support">Support</Link>
+                  <span className="version">v{version}</span>
+                </AppFooter>
+              </div>
+            ) : homeElement
+          }
+        />
+        <Route
           path="/"
           element={
             user ? (
@@ -858,6 +923,14 @@ function App() {
                   onToggleTheme={toggleTheme}
                 >
                   <span>Welcome, {user.username}!</span>
+                  <button
+                    onClick={() => navigate('/tags')}
+                    className="btn-secondary"
+                    title="Manage tags"
+                  >
+                    <Tags size={16} className="btn-icon" />
+                    <span>Tags</span>
+                  </button>
                   <button
                     onClick={() => navigate('/settings')}
                     className="btn-secondary"
@@ -880,14 +953,27 @@ function App() {
                     onTagFavoriteToggle={handleTagFavoriteToggle}
                     renderCard={renderOwnerCard}
                     toolbarExtra={(
-            <button
-              className="btn-primary"
-              onClick={() => setShowAddForm(!showAddForm)}
-              disabled={isFreeLimitReached && !showAddForm}
-            >
-              {!showAddForm && <Plus size={16} className="btn-icon" />}
-              <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className={`btn-secondary refresh-btn ${refreshing ? 'spinning' : ''}`}
+                onClick={handleRefreshBookmarks}
+                disabled={refreshing}
+                title="Refresh bookmarks (e.g. after saving via the browser extension)"
+                aria-label="Refresh bookmarks"
+              >
+                <RefreshCw size={16} className="btn-icon" />
+                <span>Refresh</span>
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => setShowAddForm(!showAddForm)}
+                disabled={isFreeLimitReached && !showAddForm}
+              >
+                {!showAddForm && <Plus size={16} className="btn-icon" />}
+                <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
+              </button>
+            </>
           )}
         >
           {billingMessage === 'success' && (

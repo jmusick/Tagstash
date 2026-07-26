@@ -18,6 +18,8 @@ Current status at a glance:
 - Bookmark CRUD, tag cloud filtering, import flow, and search are in place
 - Opt-in public profiles let users share a read-only, tag-filterable view of their bookmarks
 - Browser extension support exists in the companion TagstashExtension project
+- Manual and background refresh keep the bookmark list in sync with saves made via the browser extension
+- A dedicated Tag Management page supports merging tags together
 
 ## Features
 
@@ -35,6 +37,8 @@ Current status at a glance:
 - Light and dark theme support
 - Responsive UI for desktop and mobile
 - Firefox/browser extension companion for saving the current tab quickly
+- Refresh button plus a quiet 5-minute background poll so bookmarks saved elsewhere (e.g. the browser extension) show up without a page reload
+- Tag Management page (`/tags`) for merging two tags into one, with a confirmation step since it can't be undone
 
 ## Hosted Version
 
@@ -175,6 +179,8 @@ Production setup includes:
 - `DELETE /api/bookmarks/:id`
 - `POST /api/bookmarks/import`
 - `GET /api/bookmarks/tags/all`
+- `POST /api/bookmarks/tags/merge`
+- `POST /api/bookmarks/tags/:id/favorite`
 - `POST /api/bookmarks/:id/favorite`
 - `POST /api/bookmarks/:id/private`
 

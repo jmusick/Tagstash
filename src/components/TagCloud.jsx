@@ -3,7 +3,7 @@ import { bookmarksAPI } from '../api/api';
 import { Tag, Search, Plus, Star } from 'lucide-react';
 import './TagCloud.css';
 
-function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0 }) {
+function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0, showActions = true }) {
   const selfManaged = providedTags === undefined;
   const [fetchedTags, setFetchedTags] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -94,35 +94,37 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                   }
                 }}
               >
-                <span className="tag-chip-actions">
-                  <button
-                    type="button"
-                    className={`tag-cloud-chip-plus ${isSelected ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTagAdd?.(tag.name);
-                    }}
-                    title={isSelected ? 'Already in query' : `Add ${tag.name} to query`}
-                    aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
-                    disabled={isSelected}
-                  >
-                    <Plus size={14} />
-                  </button>
-                  {onTagFavoriteToggle && (
+                {showActions && (
+                  <span className="tag-chip-actions">
                     <button
                       type="button"
-                      className={`tag-cloud-chip-star ${isFavorite ? 'active' : ''}`}
+                      className={`tag-cloud-chip-plus ${isSelected ? 'active' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onTagFavoriteToggle(tag);
+                        onTagAdd?.(tag.name);
                       }}
-                      title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
-                      aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                      title={isSelected ? 'Already in query' : `Add ${tag.name} to query`}
+                      aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
+                      disabled={isSelected}
                     >
-                      <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+                      <Plus size={14} />
                     </button>
-                  )}
-                </span>
+                    {onTagFavoriteToggle && (
+                      <button
+                        type="button"
+                        className={`tag-cloud-chip-star ${isFavorite ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTagFavoriteToggle(tag);
+                        }}
+                        title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                        aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
+                      >
+                        <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
+                  </span>
+                )}
                 <span className="tag-name">{tag.name}</span>
                 <span className="tag-badge">{tag.count}</span>
               </div>

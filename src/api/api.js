@@ -113,6 +113,9 @@ export const bookmarksAPI = {
   toggleTagFavorite: (id) =>
     api.post(`/bookmarks/tags/${id}/favorite`),
 
+  mergeTags: (sourceTagId, targetTagId) =>
+    api.post('/bookmarks/tags/merge', { sourceTagId, targetTagId }),
+
   importBookmarks: (bookmarks) =>
     api.post('/bookmarks/import', { bookmarks }),
 };

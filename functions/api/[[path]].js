@@ -1826,6 +1826,79 @@ async function handleBookmarks(request, env, segments) {
     return jsonResponse({ tags });
   }
 
+  if (request.method === 'POST' && segments[1] === 'tags' && segments[2] === 'merge') {
+    const { sourceTagId, targetTagId } = await parseBody(request);
+    const sourceId = Number(sourceTagId);
+    const targetId = Number(targetTagId);
+
+    if (!Number.isInteger(sourceId) || sourceId <= 0 || !Number.isInteger(targetId) || targetId <= 0) {
+      return jsonResponse({ error: 'Invalid tag id' }, 400);
+    }
+
+    if (sourceId === targetId) {
+      return jsonResponse({ error: 'Cannot merge a tag into itself' }, 400);
+    }
+
+    const [sourceTag, targetTag] = await Promise.all([
+      db.prepare('SELECT id, name FROM tags WHERE id = ?').bind(sourceId).first(),
+      db.prepare('SELECT id, name FROM tags WHERE id = ?').bind(targetId).first(),
+    ]);
+
+    if (!sourceTag || !targetTag) {
+      return jsonResponse({ error: 'Tag not found' }, 404);
+    }
+
+    const ownershipQuery = `
+      SELECT COUNT(*) AS count
+      FROM bookmark_tags bt
+      JOIN bookmarks b ON bt.bookmark_id = b.id
+      WHERE bt.tag_id = ? AND b.user_id = ?
+    `;
+    const [sourceUsage, targetUsage] = await Promise.all([
+      db.prepare(ownershipQuery).bind(sourceId, auth.user.id).first(),
+      db.prepare(ownershipQuery).bind(targetId, auth.user.id).first(),
+    ]);
+
+    if (Number(sourceUsage?.count || 0) === 0 || Number(targetUsage?.count || 0) === 0) {
+      return jsonResponse({ error: 'You can only merge tags used by your own bookmarks' }, 404);
+    }
+
+    const hasFavoriteTagsTable = await tableExists(db, 'favorite_tags');
+
+    const statements = [
+      db.prepare(
+        `INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id)
+         SELECT bt.bookmark_id, ?
+         FROM bookmark_tags bt
+         JOIN bookmarks b ON bt.bookmark_id = b.id
+         WHERE bt.tag_id = ? AND b.user_id = ?`
+      ).bind(targetId, sourceId, auth.user.id),
+      db.prepare(
+        `DELETE FROM bookmark_tags
+         WHERE tag_id = ? AND bookmark_id IN (SELECT id FROM bookmarks WHERE user_id = ?)`
+      ).bind(sourceId, auth.user.id),
+    ];
+
+    if (hasFavoriteTagsTable) {
+      statements.push(
+        db.prepare('DELETE FROM favorite_tags WHERE user_id = ? AND tag_id = ?').bind(auth.user.id, sourceId)
+      );
+    }
+
+    statements.push(
+      db
+        .prepare('DELETE FROM tags WHERE id = ? AND NOT EXISTS (SELECT 1 FROM bookmark_tags WHERE tag_id = ?)')
+        .bind(sourceId, sourceId)
+    );
+
+    await db.batch(statements);
+
+    return jsonResponse({
+      message: `Merged "${sourceTag.name}" into "${targetTag.name}"`,
+      tag: { id: targetTag.id, name: targetTag.name },
+    });
+  }
+
   if (request.method === 'POST' && segments[1] && segments[2] === 'favorite') {
     const bookmarkId = Number(segments[1]);
 
