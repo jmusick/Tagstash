@@ -38,7 +38,10 @@ Current status at a glance:
 - Responsive UI for desktop and mobile
 - Firefox/browser extension companion for saving the current tab quickly
 - Refresh button plus a quiet 5-minute background poll so bookmarks saved elsewhere (e.g. the browser extension) show up without a page reload
+- Random button for jumping straight to a random bookmark in edit mode
 - Tag Management page (`/tags`) for merging two tags into one, with a confirmation step since it can't be undone
+- Self-service username, email, and password changes, plus a forgot-password email flow
+- Personal API keys (Settings) for programmatic access to your account
 
 ## Hosted Version
 
@@ -155,12 +158,22 @@ Production setup includes:
 - `GET /api/auth/me`
 - `GET /api/auth/verify-email`
 - `POST /api/auth/resend-verification`
+- `PUT /api/auth/username`
+- `PUT /api/auth/email`
+- `PUT /api/auth/password`
 - `PUT /api/auth/profile-public`
+- `GET /api/auth/api-keys`
+- `POST /api/auth/api-keys`
+- `DELETE /api/auth/api-keys/:id`
+- `DELETE /api/auth/api-keys/:id/permanent`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
 
 ### Admin
 
 - `GET /api/auth/admin/users`
 - `PATCH /api/auth/admin/users/:id`
+- `DELETE /api/auth/admin/users/:id`
 
 ### Billing
 
@@ -170,6 +183,10 @@ Production setup includes:
 - `POST /api/billing/portal-session`
 - `POST /api/billing/webhook`
 
+### Support
+
+- `POST /api/support` — contact form submission (email + message), gated by Cloudflare Turnstile
+
 ### Bookmarks
 
 - `GET /api/bookmarks`
@@ -177,6 +194,9 @@ Production setup includes:
 - `POST /api/bookmarks`
 - `PUT /api/bookmarks/:id`
 - `DELETE /api/bookmarks/:id`
+- `GET /api/bookmarks/by-url` — lookup by exact URL, used to detect duplicates (e.g. from the browser extension)
+- `POST /api/bookmarks/meta` — fetch a page's title metadata
+- `POST /api/bookmarks/meta-description` — fetch a page's description metadata
 - `POST /api/bookmarks/import`
 - `GET /api/bookmarks/tags/all`
 - `POST /api/bookmarks/tags/merge`

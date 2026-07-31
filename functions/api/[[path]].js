@@ -552,21 +552,31 @@ const normalizeBookmarkUrl = (value) => {
     return null;
   }
 
-  if (/^https?:\/\//i.test(normalized)) {
-    return normalized;
+  if (!/^https?:\/\//i.test(normalized)) {
+    // Treat missing or malformed protocol prefixes as secure by default.
+    normalized = normalized
+      .replace(/^https?:/i, '')
+      .replace(/^\/\//, '')
+      .trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    normalized = `https://${normalized}`;
   }
 
-  // Treat missing or malformed protocol prefixes as secure by default.
-  normalized = normalized
-    .replace(/^https?:/i, '')
-    .replace(/^\/\//, '')
-    .trim();
+  // A trailing slash on a bare root path (no deeper path/query/hash) is purely
+  // cosmetic, so drop it for a consistent stored form regardless of where the
+  // URL was copied from (e.g. Firefox's address bar always includes it).
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
+      return parsed.origin;
+    }
+  } catch {}
 
-  if (!normalized) {
-    return null;
-  }
-
-  return `https://${normalized}`;
+  return normalized;
 };
 
 const isValidHttpUrl = (value) => {

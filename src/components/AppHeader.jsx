@@ -1,6 +1,10 @@
-import { Moon, Sun } from 'lucide-react'
+import { useState, Children } from 'react'
+import { Moon, Sun, Menu, X } from 'lucide-react'
 
 function AppHeader({ logoSrc, tagline, onLogoClick, theme, onToggleTheme, children }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const hasMenuItems = Children.count(children) > 0
+
   return (
     <header className="app-header">
       <div className="app-header-brand">
@@ -15,10 +19,26 @@ function AppHeader({ logoSrc, tagline, onLogoClick, theme, onToggleTheme, childr
         )}
         <p className="app-header-tagline">{tagline}</p>
       </div>
-      <div className="user-info">
+
+      {hasMenuItems && (
         <button
           type="button"
-          onClick={onToggleTheme}
+          className="app-header-menu-toggle"
+          onClick={() => setMenuOpen((prev) => !prev)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      )}
+
+      <div
+        className={`user-info ${menuOpen ? 'user-info-open' : ''}`}
+        onClick={() => setMenuOpen(false)}
+      >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleTheme() }}
           className="theme-toggle-btn"
           aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}

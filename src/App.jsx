@@ -17,7 +17,7 @@ const VerifyEmail = lazy(() => import('./components/VerifyEmail'))
 const ResetPassword = lazy(() => import('./components/ResetPassword'))
 const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 const THEME_STORAGE_KEY = 'tagstash-theme'
@@ -25,14 +25,31 @@ const THEME_STORAGE_KEY = 'tagstash-theme'
 const normalizeBookmarkUrl = (value) => {
   const raw = (value || '').trim()
   if (!raw) return ''
-  if (/^https?:\/\//i.test(raw)) return raw
 
-  const cleaned = raw
-    .replace(/^https?:/i, '')
-    .replace(/^\/\//, '')
-    .trim()
+  let normalized
+  if (/^https?:\/\//i.test(raw)) {
+    normalized = raw
+  } else {
+    const cleaned = raw
+      .replace(/^https?:/i, '')
+      .replace(/^\/\//, '')
+      .trim()
 
-  return cleaned ? `https://${cleaned}` : ''
+    normalized = cleaned ? `https://${cleaned}` : ''
+  }
+  if (!normalized) return ''
+
+  // A trailing slash on a bare root path (no deeper path/query/hash) is purely
+  // cosmetic, so drop it for a consistent stored form regardless of where the
+  // URL was copied from (e.g. Firefox's address bar always includes it).
+  try {
+    const parsed = new URL(normalized)
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
+      return parsed.origin
+    }
+  } catch {}
+
+  return normalized
 }
 
 const ActionInfo = ({ text }) => (
@@ -61,6 +78,7 @@ function App() {
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [browserResetKey, setBrowserResetKey] = useState(0)
+  const [focusBookmarkId, setFocusBookmarkId] = useState(null)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -142,6 +160,7 @@ function App() {
     navigate('/')
     setShowAddForm(false)
     setEditingBookmarkId(null)
+    setFocusBookmarkId(null)
     setBrowserResetKey((prev) => prev + 1)
   }
 
@@ -159,6 +178,9 @@ function App() {
   }
 
   const handleRefreshBookmarks = async () => {
+    if (focusBookmarkId) {
+      handleCancelEdit()
+    }
     setRefreshing(true)
     try {
       await fetchBookmarks({ silent: true })
@@ -336,7 +358,7 @@ function App() {
   const handleBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(formData.url))
-      setFormData(prev => ({ ...prev, url: u.origin + '/' }))
+      setFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
@@ -350,7 +372,7 @@ function App() {
   const handleEditBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(editFormData.url))
-      setEditFormData(prev => ({ ...prev, url: u.origin + '/' }))
+      setEditFormData(prev => ({ ...prev, url: u.origin }))
     } catch {}
   }
 
@@ -484,10 +506,19 @@ function App() {
     setEditTagDraft('')
   }
 
+  const handleRandomBookmark = () => {
+    if (bookmarks.length === 0) return
+    const randomBookmark = bookmarks[Math.floor(Math.random() * bookmarks.length)]
+    setShowAddForm(false)
+    handleStartEdit(randomBookmark)
+    setFocusBookmarkId(randomBookmark.id)
+  }
+
   const handleCancelEdit = () => {
     setEditingBookmarkId(null)
     setEditFormData({ title: '', url: '', description: '', tags: '' })
     setEditTagDraft('')
+    setFocusBookmarkId(null)
   }
 
   const handleEditInputChange = (e) => {
@@ -614,7 +645,7 @@ function App() {
     const displayDescription = decodeHtmlEntities(bookmark.description || '')
 
     return (
-      <div className="bookmark-card">
+      <div className="bookmark-card" id={`bookmark-${bookmark.id}`}>
         <div className="bookmark-header">
           {faviconSrc && (
             <img
@@ -952,6 +983,7 @@ function App() {
                     tagsRefreshKey={tagsRefreshKey}
                     onTagFavoriteToggle={handleTagFavoriteToggle}
                     renderCard={renderOwnerCard}
+                    focusBookmarkId={focusBookmarkId}
                     toolbarExtra={(
             <>
               <button
@@ -964,6 +996,17 @@ function App() {
               >
                 <RefreshCw size={16} className="btn-icon" />
                 <span>Refresh</span>
+              </button>
+              <button
+                type="button"
+                className="btn-secondary random-btn"
+                onClick={handleRandomBookmark}
+                disabled={bookmarks.length === 0}
+                title="Jump to a random bookmark in edit mode"
+                aria-label="Random bookmark"
+              >
+                <Shuffle size={16} className="btn-icon" />
+                <span>Random</span>
               </button>
               <button
                 className="btn-primary"

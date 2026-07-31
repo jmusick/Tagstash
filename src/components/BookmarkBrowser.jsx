@@ -50,6 +50,7 @@ function BookmarkBrowser({
   emptyStateMessage = 'No bookmarks yet. Add your first one to get started!',
   initialSelectedTags,
   onSelectedTagsChange,
+  focusBookmarkId,
   children,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -97,6 +98,10 @@ function BookmarkBrowser({
   }, [bookmarks, sortBy, sortDirection])
 
   const filteredBookmarks = useMemo(() => {
+    if (focusBookmarkId) {
+      return sortedBookmarks.filter((bookmark) => bookmark.id === focusBookmarkId)
+    }
+
     const query = searchTerm.trim().toLowerCase()
     return sortedBookmarks.filter((bookmark) => {
       const tagsText = Array.isArray(bookmark.tags)
@@ -125,7 +130,7 @@ function BookmarkBrowser({
 
       return matchesSearch && matchesTag && matchesFavorite
     })
-  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly])
+  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly, focusBookmarkId])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -143,6 +148,24 @@ function BookmarkBrowser({
     const start = (currentPage - 1) * itemsPerPage
     return filteredBookmarks.slice(start, start + itemsPerPage)
   }, [filteredBookmarks, currentPage, itemsPerPage])
+
+  // Clear the underlying search/tag/favorites controls so they don't reappear
+  // stale once a focused bookmark (e.g. from the Random button) is cleared.
+  useEffect(() => {
+    if (!focusBookmarkId) return
+    setSearchTerm('')
+    setSelectedTags([])
+    setShowFavoritesOnly(false)
+    setCurrentPage(1)
+  }, [focusBookmarkId])
+
+  // Scroll the focused bookmark into view once it's rendered as the sole card.
+  useEffect(() => {
+    if (!focusBookmarkId) return
+    if (!paginatedBookmarks.some((bookmark) => bookmark.id === focusBookmarkId)) return
+    const el = document.getElementById(`bookmark-${focusBookmarkId}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [focusBookmarkId, paginatedBookmarks])
 
   const handleTagSelect = (tagName) => {
     const normalized = tagName?.trim().toLowerCase()
@@ -259,7 +282,7 @@ function BookmarkBrowser({
           ) : filteredBookmarks.length === 0 ? (
             <div className="empty-state">
               <p>
-                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly
+                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly || focusBookmarkId
                   ? 'No bookmarks match your search.'
                   : emptyStateMessage}
               </p>

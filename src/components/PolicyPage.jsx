@@ -9,7 +9,7 @@ function PolicyPage({ logoSrc, onBack }) {
       </header>
 
       <main className="privacy-content">
-        <p className="privacy-effective">Effective date: January 1, 2025</p>
+        <p className="privacy-effective">Effective date: July 31, 2026</p>
 
         <section>
           <h2>Overview</h2>
@@ -31,6 +31,16 @@ function PolicyPage({ logoSrc, onBack }) {
               save to your account.
             </li>
             <li>
+              <strong>Billing information:</strong> if you subscribe to Pro, our payment
+              processor Stripe handles your payment details directly. We store a Stripe
+              customer ID and subscription ID to manage your plan, but we never see or store
+              your card number.
+            </li>
+            <li>
+              <strong>Support requests:</strong> the email address and message you submit
+              through the in-app Support form.
+            </li>
+            <li>
               <strong>Usage data:</strong> standard server logs including IP addresses, browser
               type, and pages accessed, used solely for operating and improving the service.
             </li>
@@ -42,10 +52,50 @@ function PolicyPage({ logoSrc, onBack }) {
           <ul>
             <li>To provide and maintain your bookmarking account.</li>
             <li>To authenticate you and keep your data secure.</li>
+            <li>To process payments and manage subscriptions.</li>
             <li>To respond to support requests.</li>
             <li>To improve the reliability and performance of the service.</li>
           </ul>
           <p>We do not sell or share your personal data with third parties for advertising purposes.</p>
+        </section>
+
+        <section>
+          <h2>Third-Party Services</h2>
+          <p>We rely on a small number of third-party services to operate Tagstash:</p>
+          <ul>
+            <li>
+              <strong>Stripe</strong> processes payments and manages subscriptions for Pro
+              accounts. Your email and username are shared with Stripe to associate your
+              subscription with your account.
+            </li>
+            <li>
+              <strong>Resend</strong> delivers transactional emails (verification, password
+              reset), which requires sharing your email address and the relevant one-time
+              token with them.
+            </li>
+            <li>
+              <strong>Cloudflare Turnstile</strong> verifies that Support form submissions
+              come from a real person rather than a bot.
+            </li>
+            <li>
+              When you save or edit a bookmark, our server fetches the destination URL to
+              suggest a title and description, and requests a favicon icon for that domain
+              from Google's favicon service. These requests go out to the site you're
+              bookmarking (and to Google for the icon), not to us.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Public Profiles (Optional)</h2>
+          <p>
+            You can choose to make your profile public in Settings. When enabled, your
+            username and any bookmarks you haven't marked private become viewable by anyone
+            with the link at <code>tagsta.sh/u/your-username</code>, and through a public
+            JSON API meant for embedding your bookmarks elsewhere. This is off by default,
+            fully opt-in, and can be turned off at any time; you can also mark individual
+            bookmarks private to exclude them even while your profile is public.
+          </p>
         </section>
 
         <section>
@@ -68,8 +118,10 @@ function PolicyPage({ logoSrc, onBack }) {
         <section>
           <h2>Cookies &amp; Local Storage</h2>
           <p>
-            We use browser local storage to remember your theme preference and to keep you
-            logged in between sessions. We do not use third-party tracking cookies.
+            We do not set any cookies. The web app uses browser local storage to remember
+            your theme preference and to keep you logged in between sessions. If you use the
+            Tagstash browser extension, it similarly stores your session and basic profile
+            info locally in your browser (not on any other site) so you stay logged in there.
           </p>
         </section>
 
