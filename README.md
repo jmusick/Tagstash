@@ -1,8 +1,8 @@
 # Tagstash
 
-Tagstash is a self-hosted, tag-first bookmarking app built with React, Cloudflare Pages Functions, and D1. It includes user accounts, email verification, Stripe-powered Pro subscriptions, import tooling, and a companion browser extension.
+Tagstash is a tag-first bookmarking app built with React, Cloudflare Pages Functions, and D1. It includes user accounts, email verification, Stripe-powered Pro subscriptions, import tooling, and a companion browser extension.
 
-If you do not want to self-host it, you can use the official hosted version at https://tagsta.sh/
+The official hosted version is available at https://tagsta.sh/
 
 ## Project Status
 
@@ -47,7 +47,7 @@ Current status at a glance:
 
 The commercial hosted version of Tagstash is available at https://tagsta.sh/
 
-That hosted service is the official paid offering run by the author. This repository is for people who want to study the codebase or run their own non-commercial instance under the included license terms.
+That hosted service is the official paid offering run by Stone Dragon Media LLC. This repository is source-available primarily so people can study the codebase; see [LICENSE.md](./LICENSE.md) for what else is permitted.
 
 ## Tech Stack
 
@@ -288,4 +288,4 @@ In plain English:
 
 Read the full terms in [LICENSE.md](./LICENSE.md).
 
-For commercial licensing inquiries, contact `jd@orboro.net`.
+For commercial licensing inquiries, contact `legal@tagsta.sh`.

@@ -1,5 +1,5 @@
 Tagstash Non-Commercial License (TNCL) v1.0
-Copyright (c) 2026 Justin Musick
+Copyright (c) 2026 Stone Dragon Media LLC
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to use,
@@ -35,12 +35,20 @@ educational, hobby, archival, or other non-commercial use.
    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
-5. **Commercial Licensing**
+5. **Limitation of Liability**
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE, INCLUDING WITHOUT LIMITATION ANY DIRECT,
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, EVEN IF
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+6. **Commercial Licensing**
    If you wish to use this Software for commercial purposes, you must obtain
    explicit written permission from the author.
 
 For commercial licensing inquiries, contact:
-jd@orboro.net
+legal@tagsta.sh
 
 ---
 

@@ -164,7 +164,12 @@ function SupportPage({ logoSrc, onBack, prefillEmail = '' }) {
         <button className="btn-secondary" onClick={onBack}>
           &larr; Back
         </button>
-        <span className="support-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
+        <span className="support-copyright">
+          &copy; {new Date().getFullYear()}{' '}
+          <a href="https://stonedragonmedia.com/" target="_blank" rel="noopener noreferrer">
+            Stone Dragon Media LLC
+          </a>
+        </span>
       </footer>
     </div>
   );

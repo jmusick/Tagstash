@@ -14,8 +14,9 @@ function PolicyPage({ logoSrc, onBack }) {
         <section>
           <h2>Overview</h2>
           <p>
-            Tagstash ("we", "us", or "our") provides a tag-based bookmarking service. This
-            policy explains what information we collect, how we use it, and your choices.
+            Tagstash ("we", "us", or "our") is operated by Stone Dragon Media LLC and provides
+            a tag-based bookmarking service. This policy explains what information we collect,
+            how we use it, and your choices.
           </p>
         </section>
 
@@ -111,7 +112,7 @@ function PolicyPage({ logoSrc, onBack }) {
           <p>
             Your data is retained as long as your account is active. You may delete individual
             bookmarks at any time. To request full account deletion and removal of all associated
-            data, contact us at the address below.
+            data, use the in-app Support form (see Contact below).
           </p>
         </section>
 
@@ -155,7 +156,12 @@ function PolicyPage({ logoSrc, onBack }) {
         <button className="btn-secondary" onClick={onBack}>
           &larr; Back
         </button>
-        <span className="privacy-copyright">&copy; {new Date().getFullYear()} Tagstash</span>
+        <span className="privacy-copyright">
+          &copy; {new Date().getFullYear()}{' '}
+          <a href="https://stonedragonmedia.com/" target="_blank" rel="noopener noreferrer">
+            Stone Dragon Media LLC
+          </a>
+        </span>
       </footer>
     </div>
   );
