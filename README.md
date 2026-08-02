@@ -30,7 +30,7 @@ Current status at a glance:
 - Pro tier with unlimited bookmarks
 - Stripe Checkout for upgrades
 - Stripe Billing Portal for subscription management
-- Email verification via Resend
+- Email verification via Cloudflare Email Sending
 - Opt-in public profiles (`/u/:username`) for sharing your bookmarks via a link, with per-bookmark privacy control and tag filtering
 - Public JSON API (`/api/profiles/:username`, optionally tag-filtered) for embedding your bookmarks on other sites, with ready-to-copy URLs in Settings
 - Super admin controls for managing users, roles, and tiers
@@ -66,7 +66,7 @@ That hosted service is the official paid offering run by the author. This reposi
 - Cloudflare D1
 - bcryptjs
 - jose
-- Resend
+- Cloudflare Email Sending
 - Stripe REST API
 
 ## Local Development
@@ -93,7 +93,7 @@ Required or commonly used values:
 
 - `JWT_SECRET`
 - `SUPER_ADMIN_EMAIL`
-- `RESEND_API_KEY` for email verification
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for email verification (Cloudflare Email Sending)
 - `API_KEY_ENCRYPTION_SECRET` optional, defaults to `JWT_SECRET` behavior in app usage
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`

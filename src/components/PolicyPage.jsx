@@ -69,9 +69,9 @@ function PolicyPage({ logoSrc, onBack }) {
               subscription with your account.
             </li>
             <li>
-              <strong>Resend</strong> delivers transactional emails (verification, password
-              reset), which requires sharing your email address and the relevant one-time
-              token with them.
+              <strong>Cloudflare Email Sending</strong> delivers transactional emails
+              (verification, password reset), which requires sharing your email address and
+              the relevant one-time token with them.
             </li>
             <li>
               <strong>Cloudflare Turnstile</strong> verifies that Support form submissions

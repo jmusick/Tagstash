@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
-import { Resend } from 'resend';
 
 const MEMBERSHIP_TIERS = {
   FREE: 'free',
@@ -29,7 +28,42 @@ const corsHeaders = {
 
 const encoder = new TextEncoder();
 
+// --- Email sending (Cloudflare Email Sending REST API) ---
+
+const sendEmail = async ({ to, from, subject, text, html, replyTo }, env) => {
+  if (!env.CLOUDFLARE_API_TOKEN) throw new Error('Missing CLOUDFLARE_API_TOKEN');
+  if (!env.CLOUDFLARE_ACCOUNT_ID) throw new Error('Missing CLOUDFLARE_ACCOUNT_ID');
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/email/sending/send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to,
+        from,
+        subject,
+        text,
+        html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.success) {
+    const message = data?.errors?.[0]?.message || `Cloudflare Email Sending error: ${response.status}`;
+    throw new Error(message);
+  }
+};
+
 // --- Email verification helpers ---
+
+// Each email purpose has its own "from" address, overridable via env for self-hosters.
+const emailFrom = (purposeVar, fallback, env) => env[purposeVar] || env.EMAIL_FROM || fallback;
 
 const generateVerificationToken = () => {
   const bytes = new Uint8Array(32);
@@ -40,17 +74,9 @@ const generateVerificationToken = () => {
 };
 
 const sendVerificationEmail = async (email, username, token, env) => {
-  if (!env.RESEND_API_KEY) {
-    throw new Error('Missing RESEND_API_KEY');
-  }
-  if (!env.EMAIL_FROM) {
-    throw new Error('Missing EMAIL_FROM');
-  }
-
   const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   const verifyUrl = `${appUrl}/verify-email?token=${token}`;
-  const resend = new Resend(env.RESEND_API_KEY);
-  const fromAddress = env.EMAIL_FROM;
+  const fromAddress = emailFrom('EMAIL_FROM_VERIFICATION', 'welcome@tagsta.sh', env);
   const replyTo = env.EMAIL_REPLY_TO || undefined;
   const textBody = [
     `Hi ${username},`,
@@ -74,28 +100,23 @@ const sendVerificationEmail = async (email, username, token, env) => {
   <p>If you did not create a Tagstash account, you can safely ignore this email.</p>
 </div>`;
 
-  const { error } = await resend.emails.send({
-    from: fromAddress,
-    to: email,
-    replyTo,
-    subject: 'Verify your Tagstash email address',
-    text: textBody,
-    html: htmlBody,
-  });
-
-  if (error) {
-    throw new Error(error.message || 'Failed to send verification email');
-  }
+  await sendEmail(
+    {
+      from: fromAddress,
+      to: email,
+      replyTo,
+      subject: 'Verify your Tagstash email address',
+      text: textBody,
+      html: htmlBody,
+    },
+    env
+  );
 };
 
 const sendPasswordResetEmail = async (email, username, token, env) => {
-  if (!env.RESEND_API_KEY) throw new Error('Missing RESEND_API_KEY');
-  if (!env.EMAIL_FROM) throw new Error('Missing EMAIL_FROM');
-
   const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
   const resetUrl = `${appUrl}/reset-password?token=${token}`;
-  const resend = new Resend(env.RESEND_API_KEY);
-  const fromAddress = env.EMAIL_FROM;
+  const fromAddress = emailFrom('EMAIL_FROM_PASSWORD_RESET', 'support@tagsta.sh', env);
   const replyTo = env.EMAIL_REPLY_TO || undefined;
 
   const textBody = [
@@ -121,16 +142,17 @@ const sendPasswordResetEmail = async (email, username, token, env) => {
   <p>If you did not request a password reset, you can safely ignore this email.</p>
 </div>`;
 
-  const { error } = await resend.emails.send({
-    from: fromAddress,
-    to: email,
-    replyTo,
-    subject: 'Reset your Tagstash password',
-    text: textBody,
-    html: htmlBody,
-  });
-
-  if (error) throw new Error(error.message || 'Failed to send password reset email');
+  await sendEmail(
+    {
+      from: fromAddress,
+      to: email,
+      replyTo,
+      subject: 'Reset your Tagstash password',
+      text: textBody,
+      html: htmlBody,
+    },
+    env
+  );
 };
 
 const jsonResponse = (payload, status = 200) =>
@@ -869,7 +891,7 @@ async function handleAuth(request, env, segments) {
 
     try {
       await sendVerificationEmail(normalizedEmail, trimmedUsername, verificationToken, env);
-    } catch (emailErr) {
+    } catch {
       // Roll back user creation if email fails so they can try again
       await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
       return jsonResponse({ error: 'Failed to send verification email. Please try again.' }, 500);
@@ -2459,16 +2481,12 @@ async function handleSupport(request, env, segments) {
     return jsonResponse({ error: captcha.error }, captcha.status);
   }
 
-  if (!env.RESEND_API_KEY) {
-    return jsonResponse({ error: 'Support email is not configured.' }, 503);
-  }
-  if (!env.EMAIL_FROM) {
+  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
     return jsonResponse({ error: 'Support email is not configured.' }, 503);
   }
 
-  const resend = new Resend(env.RESEND_API_KEY);
   const toAddress = env.SUPPORT_EMAIL || 'support@tagsta.sh';
-  const fromAddress = env.EMAIL_FROM;
+  const fromAddress = emailFrom('EMAIL_FROM_CONTACT', 'contact@tagsta.sh', env);
 
   const textBody = [
     'New Tagstash support request',
@@ -2517,16 +2535,19 @@ async function handleSupport(request, env, segments) {
   </body>
 </html>`;
 
-  const { error } = await resend.emails.send({
-    from: fromAddress,
-    to: toAddress,
-    replyTo: normalizedEmail,
-    subject: `Tagstash support request from ${normalizedEmail}`,
-    text: textBody,
-    html: htmlBody,
-  });
-
-  if (error) {
+  try {
+    await sendEmail(
+      {
+        from: fromAddress,
+        to: toAddress,
+        replyTo: normalizedEmail,
+        subject: `Tagstash support request from ${normalizedEmail}`,
+        text: textBody,
+        html: htmlBody,
+      },
+      env
+    );
+  } catch {
     return jsonResponse({ error: 'Failed to send support request. Please try again.' }, 500);
   }
 

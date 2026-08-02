@@ -135,7 +135,7 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
     }
   ];
 
-  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth', 'Stripe', 'Resend'];
+  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth', 'Stripe', 'Cloudflare Email Sending'];
 
   if (forgotMode) {
     return (

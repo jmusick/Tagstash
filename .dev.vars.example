@@ -11,10 +11,17 @@ SUPER_ADMIN_EMAIL=your@email.com
 # Stripe checkout/portal redirects if unset.
 APP_URL=http://localhost:3000
 
-# Email (Resend) — required for registration/verification/password-reset emails
-# and the support form to work locally.
-RESEND_API_KEY=
+# Email (Cloudflare Email Sending) — required for registration/verification/
+# password-reset emails and the support form to work locally.
+# CLOUDFLARE_API_TOKEN needs the "Email Sending: Edit" permission.
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+# Per-purpose "from" addresses. Each falls back to EMAIL_FROM, then to a
+# tagsta.sh default — override for self-hosted instances on another domain.
 EMAIL_FROM=
+EMAIL_FROM_VERIFICATION=
+EMAIL_FROM_PASSWORD_RESET=
+EMAIL_FROM_CONTACT=
 EMAIL_REPLY_TO=
 SUPPORT_EMAIL=
 

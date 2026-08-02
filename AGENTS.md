@@ -19,6 +19,19 @@ Routes that must be reachable by anonymous visitors (like the public profile end
 
 `GET /api/profiles/:username` (in `handleProfiles`) is a **stable, documented public API** meant for third-party consumption — Settings surfaces ready-to-copy URLs (including per-tag `?tag=` filters) for users to embed on other sites, and it's documented in `README.md`. Treat changes to its response shape as a compatibility concern, not a free internal refactor — it's not just page-support data for `/u/:username` anymore.
 
+## Email sending: Cloudflare Email Sending (not Resend)
+
+All transactional email goes through the **Cloudflare Email Sending REST API** (no SDK, plain `fetch`) via the `sendEmail` helper in `functions/api/[[path]].js` (~line 32), used by `sendVerificationEmail`, `sendPasswordResetEmail`, and the support-form handler (~line 2432). Config is `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `EMAIL_REPLY_TO` / `SUPPORT_EMAIL` env vars (see `.dev.vars.example`). `sendEmail` throws if the token/account ID are unset, and callers turn that into a `503`.
+
+Each email purpose has its own "from" address via the `emailFrom(purposeVar, fallback, env)` helper: `EMAIL_FROM_VERIFICATION` (default `welcome@tagsta.sh`), `EMAIL_FROM_PASSWORD_RESET` (default `support@tagsta.sh`), `EMAIL_FROM_CONTACT` (default `contact@tagsta.sh`, used as the support-form's outgoing sender — not to be confused with `SUPPORT_EMAIL`, which is the inbox the support form delivers *to*). Each falls back to the generic `EMAIL_FROM` before its hardcoded default, so self-hosters on another domain can override with one var instead of three.
+
+Notes on the integration ([REST API docs](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/)):
+- `POST https://api.cloudflare.com/client/v4/accounts/{account_id}/email/sending/send`, `Authorization: Bearer <token>` where the token is scoped to `Email Sending: Edit`.
+- Reply-to is the **snake_case top-level field `reply_to`** — confirmed by live testing against the API. `replyTo` (camelCase) 400s with `invalid_request_schema`, and a `headers: { 'Reply-To': ... }` object 400s with `email.invalid`; neither is documented clearly, so don't reintroduce them. This is what the support-form's "reply goes to the requester" behavior depends on.
+- 5 MiB total message size limit (incl. attachments); rate-limited (error code 10004).
+- It's a beta product — the `from` sending domain needs to be connected/verified in the Cloudflare dashboard first.
+- Migrated from Resend on 2026-08-02; the `resend` npm package has been removed from `package.json`.
+
 ## D1 migrations: guard new columns, don't assume they exist
 
 Cloudflare Pages deploys the Worker bundle **independently** of `wrangler d1 migrations apply` — there's no auto-migrate-on-deploy hook. Code can reach prod before a new migration has been applied there (or the reverse, in cases where it doesn't matter). For any code path that references a newly-added column by name (filtering, inserting, toggling — not `SELECT *`), guard it with the existing helpers:
@@ -67,7 +80,7 @@ npm run dev:all     # Vite (localhost:3000) + wrangler pages dev (127.0.0.1:5000
 ```
 
 Gotchas:
-- **Email verification can't be exercised locally** — there's no real Resend send, so `POST /api/auth/register` will fail at the send step and roll back the user. To get a usable authenticated test account, insert a pre-verified user directly into local D1 instead:
+- **Email verification can't be exercised locally** unless `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` are set in `.dev.vars`, so `POST /api/auth/register` will fail at the send step and roll back the user without them. To get a usable authenticated test account, insert a pre-verified user directly into local D1 instead:
   ```bash
   node -e "require('bcryptjs').hash('testpass123', 10).then(console.log)"
   npx wrangler d1 execute tagstash-db --local --command "INSERT INTO users (username, email, password_hash, membership_tier, role, email_verified) VALUES ('testuser', 'test@example.com', '<hash>', 'free', 'user', 1)"
