@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
-import { Tag, Zap, Shield, Share2, Cloud, Smartphone, Moon, Sun, Globe } from 'lucide-react';
+import { Tag, Zap, Shield, Share2, Smartphone, Moon, Sun, Globe } from 'lucide-react';
 import { version } from '../../package.json';
 import './Home.css';
 
@@ -111,17 +111,12 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
     {
       icon: Shield,
       title: 'Privacy Focused',
-      description: 'Run your own instance or use the hosted version. Your library stays centered on your own workflow.'
+      description: 'Keep bookmarks private by default, with fine-grained control over what you choose to share.'
     },
     {
       icon: Globe,
       title: 'Public Profiles',
       description: 'Opt in to a public profile to share a read-only, tag-filterable view of your bookmarks. Mark individual bookmarks private to keep them out of it.'
-    },
-    {
-      icon: Cloud,
-      title: 'Hosted Or Self-Hosted',
-      description: 'Use the live service at tagsta.sh or run Tagstash yourself for non-commercial use.'
     },
     {
       icon: Smartphone,
@@ -277,10 +272,9 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
             </p>
             <p>
               Create an account, verify your email, save bookmarks with tags and descriptions, then search,
-              filter, and manage your library from anywhere. If you prefer to run your own stack, you can
-              self-host it for free under the included non-commercial license.
+              filter, and manage your library from anywhere.
             </p>
-            <p className="tagline">Use the hosted app or run your own instance. Same tag-first philosophy.</p>
+            <p className="tagline">Fast capture, clean organization, tag-first every time.</p>
           </div>
         </div>
 
@@ -415,6 +409,40 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
             );
           })}
         </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="pricing-section">
+        <div className="section-header">
+          <h2>Simple, Transparent Pricing</h2>
+          <p>No gimmicks, no hidden tiers &mdash; just one Pro plan, priced honestly</p>
+        </div>
+
+        <div className="pricing-grid">
+          <div className="pricing-card">
+            <span className="pricing-badge">Monthly</span>
+            <div className="pricing-price">
+              <span className="pricing-amount">$3</span>
+              <span className="pricing-period">/ month</span>
+            </div>
+            <p className="pricing-description">Unlimited bookmarks, billed month to month. Cancel anytime.</p>
+          </div>
+
+          <div className="pricing-card pricing-card--highlight">
+            <span className="pricing-badge pricing-badge--highlight">Annual</span>
+            <div className="pricing-price">
+              <span className="pricing-amount">$36</span>
+              <span className="pricing-period">/ year</span>
+            </div>
+            <p className="pricing-description">Same $3/month rate, just paid once a year for convenience.</p>
+          </div>
+        </div>
+
+        <p className="pricing-note">
+          Monthly or annual, it&rsquo;s the same $3/month either way &mdash; no discount games, no surprise
+          price hikes. The free plan covers up to 50 bookmarks with no time limit; upgrade to Pro anytime
+          from your account settings once you&rsquo;re signed in.
+        </p>
       </section>
 
       {/* Tech Stack Section */}

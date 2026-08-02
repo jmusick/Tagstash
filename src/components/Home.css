@@ -348,6 +348,96 @@
   line-height: 1.6;
 }
 
+/* Pricing Section */
+.pricing-section {
+  padding: 5rem 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 340px));
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.pricing-card {
+  background-color: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.pricing-card:hover {
+  background-color: var(--color-surface-soft-hover);
+  border-color: rgba(var(--color-accent-rgb), 0.4);
+  transform: translateY(-2px);
+}
+
+.pricing-card--highlight {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.pricing-badge {
+  display: inline-block;
+  background-color: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-soft);
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.pricing-badge--highlight {
+  background-color: var(--color-primary-soft);
+  border-color: transparent;
+  color: var(--color-primary);
+}
+
+.pricing-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.pricing-amount {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.pricing-period {
+  font-size: 1rem;
+  color: var(--color-text-soft);
+}
+
+.pricing-description {
+  font-size: 0.95rem;
+  color: var(--color-text-soft);
+  line-height: 1.6;
+}
+
+.pricing-note {
+  max-width: 700px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--color-text-soft);
+  line-height: 1.6;
+}
+
 /* Tech Stack Section */
 .tech-section {
   padding: 5rem 2rem;
@@ -447,8 +537,13 @@
     font-size: 0.78rem;
   }
 
-  .features-grid {
+  .features-grid,
+  .pricing-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pricing-amount {
+    font-size: 2.5rem;
   }
 
   .section-header h2 {
