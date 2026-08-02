@@ -38,6 +38,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const describeAuthError = (err, fallback) => {
+    if (err.response?.data?.error) return err.response.data.error;
+    if (err.request) return 'Unable to reach the server. Please check your connection and try again.';
+    return fallback;
+  };
+
   const register = async (username, email, password) => {
     try {
       setError(null);
@@ -49,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data.user);
       return { success: true };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || 'Registration failed';
+      const errorMessage = describeAuthError(err, 'Registration failed');
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -63,7 +69,7 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data.user);
       return { success: true };
     } catch (err) {
-      const errorMessage = err.response?.data?.error || 'Login failed';
+      const errorMessage = describeAuthError(err, 'Login failed');
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }

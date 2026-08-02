@@ -1398,7 +1398,7 @@ async function handleAuth(request, env, segments) {
 
     const result = await db
       .prepare(
-        `SELECT u.id, u.username, u.email, u.membership_tier, u.role, u.created_at, u.updated_at, ${lastLoginSelect},
+        `SELECT u.id, u.username, u.email, u.membership_tier, u.role, u.stripe_customer_id, u.created_at, u.updated_at, ${lastLoginSelect},
                 COUNT(b.id) AS bookmark_count
          FROM users u
          LEFT JOIN bookmarks b ON b.user_id = u.id

@@ -395,7 +395,8 @@
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   background: var(--color-surface-soft);
-  padding: 0.4rem 0.6rem;
+  padding: 0 0.6rem;
+  height: 2.5rem;
   min-width: 180px;
   max-width: 320px;
   flex: 1 1 220px;
@@ -515,7 +516,8 @@
 }
 
 .sort-control select {
-  padding: 0.5rem 0.75rem;
+  height: 2.5rem;
+  padding: 0 0.75rem;
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   background: var(--color-surface-soft);
@@ -570,14 +572,16 @@
 .toolbar .btn-primary {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 0.5rem 1rem;
+  height: 2.5rem;
+  padding: 0 1rem;
   font-size: 0.95rem;
 }
 
 .toolbar .refresh-btn,
 .toolbar .random-btn {
   flex-shrink: 0;
-  padding: 0.5rem 1rem;
+  height: 2.5rem;
+  padding: 0 1rem;
   font-size: 0.95rem;
 }
 

@@ -533,10 +533,15 @@
 
 .admin-user-email,
 .admin-user-count,
-.admin-user-last-login {
+.admin-user-last-login,
+.admin-user-stripe-id {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
   opacity: 0.82;
+}
+
+.admin-user-stripe-id code {
+  font-size: 0.78rem;
 }
 
 .admin-user-controls {

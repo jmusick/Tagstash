@@ -1074,6 +1074,11 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                             })
                           : 'Never'}
                       </p>
+                      {member.stripe_customer_id && (
+                        <p className="admin-user-stripe-id">
+                          Stripe: <code>{member.stripe_customer_id}</code>
+                        </p>
+                      )}
                     </div>
 
                     <div className="admin-user-controls">
