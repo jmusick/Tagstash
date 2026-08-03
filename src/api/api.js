@@ -68,6 +68,9 @@ export const authAPI = {
   updateProfilePublic: (profilePublic) =>
     api.put('/auth/profile-public', { profilePublic }),
 
+  updateTheme: (theme) =>
+    api.put('/auth/theme', { theme }),
+
   adminListUsers: () =>
     api.get('/auth/admin/users'),
 

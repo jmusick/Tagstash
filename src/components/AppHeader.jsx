@@ -1,7 +1,8 @@
 import { useState, Children } from 'react'
-import { Moon, Sun, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
+import ThemeSelector from './ThemeSelector'
 
-function AppHeader({ logoSrc, tagline, onLogoClick, theme, onToggleTheme, children }) {
+function AppHeader({ logoSrc, tagline, onLogoClick, theme, onSelectTheme, children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const hasMenuItems = Children.count(children) > 0
 
@@ -36,15 +37,7 @@ function AppHeader({ logoSrc, tagline, onLogoClick, theme, onToggleTheme, childr
         className={`user-info ${menuOpen ? 'user-info-open' : ''}`}
         onClick={() => setMenuOpen(false)}
       >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onToggleTheme() }}
-          className="theme-toggle-btn"
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} />
         {children}
       </div>
     </header>

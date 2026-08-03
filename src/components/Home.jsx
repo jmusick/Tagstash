@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
-import { Tag, Zap, Shield, Share2, Smartphone, Moon, Sun, Globe } from 'lucide-react';
+import { Tag, Zap, Shield, Share2, Smartphone, Globe } from 'lucide-react';
+import ThemeSelector from './ThemeSelector';
 import { version } from '../../package.json';
 import './Home.css';
 
-function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
+function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -136,15 +137,7 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="theme-toggle-btn home-theme-toggle"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+          <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
         <div className="home-centered-content">
           <div className="auth-card">
@@ -206,15 +199,7 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="theme-toggle-btn home-theme-toggle"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+          <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
         <div className="home-centered-content">
           <div className="auth-card">
@@ -242,15 +227,7 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
   return (
     <div className="home-container">
       <div className="home-topbar">
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          className="theme-toggle-btn home-theme-toggle"
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
+        <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
       </div>
       {/* Hero Section */}
       <section className="hero-section">
@@ -463,7 +440,11 @@ function Home({ logoSrc, theme, onToggleTheme, onNavigate }) {
 
       {/* Footer */}
       <footer className="home-footer">
-        <p>&copy; {new Date().getFullYear()} Tagstash &nbsp;&middot;&nbsp;
+        <p>&copy; {new Date().getFullYear()}{' '}
+          <a href="https://stonedragonmedia.com/" target="_blank" rel="noopener noreferrer">
+            Stone Dragon Media LLC
+          </a>
+          &nbsp;&middot;&nbsp;
           <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
           &nbsp;&middot;&nbsp;
           <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>

@@ -9,7 +9,7 @@ function PolicyPage({ logoSrc, onBack }) {
       </header>
 
       <main className="privacy-content">
-        <p className="privacy-effective">Effective date: July 31, 2026</p>
+        <p className="privacy-effective">Effective date: August 3, 2026</p>
 
         <section>
           <h2>Overview</h2>
@@ -25,7 +25,8 @@ function PolicyPage({ logoSrc, onBack }) {
           <ul>
             <li>
               <strong>Account information:</strong> username and email address provided when you
-              register.
+              register, plus preferences you set while using the app (such as your selected
+              theme).
             </li>
             <li>
               <strong>Bookmarks and tags:</strong> the URLs, titles, descriptions, and tags you
@@ -120,9 +121,11 @@ function PolicyPage({ logoSrc, onBack }) {
           <h2>Cookies &amp; Local Storage</h2>
           <p>
             We do not set any cookies. The web app uses browser local storage to remember
-            your theme preference and to keep you logged in between sessions. If you use the
-            Tagstash browser extension, it similarly stores your session and basic profile
-            info locally in your browser (not on any other site) so you stay logged in there.
+            your theme preference and to keep you logged in between sessions. If you're
+            logged in, your selected theme is also saved to your account so it follows you
+            to other browsers and devices. If you use the Tagstash browser extension, it
+            similarly stores your session and basic profile info locally in your browser
+            (not on any other site) so you stay logged in there.
           </p>
         </section>
 

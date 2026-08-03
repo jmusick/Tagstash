@@ -3,6 +3,54 @@
   line-height: 1.5;
   font-weight: 400;
 
+  --color-bg: #0c0c0e;
+  --color-bg-rgb: 12, 12, 14;
+  --color-surface: #18181b;
+  --color-surface-rgb: 24, 24, 27;
+  --color-surface-soft: rgba(139, 109, 255, 0.1);
+  --color-surface-soft-hover: rgba(139, 109, 255, 0.16);
+  --color-panel: rgba(24, 24, 27, 0.86);
+  --color-panel-strong: #1f1f23;
+  --color-panel-muted: rgba(30, 30, 34, 0.92);
+  --color-border: rgba(228, 228, 231, 0.14);
+  --color-border-strong: rgba(228, 228, 231, 0.26);
+  --color-text: #f4f4f5;
+  --color-text-soft: rgba(244, 244, 245, 0.8);
+  --color-text-muted: rgba(244, 244, 245, 0.56);
+  --color-placeholder: rgba(244, 244, 245, 0.42);
+  --color-primary: #6d45ff;
+  --color-primary-hover: #7d5dff;
+  --color-primary-strong: #8b6dff;
+  --color-primary-soft: rgba(109, 69, 255, 0.18);
+  --color-primary-soft-strong: rgba(109, 69, 255, 0.3);
+  --color-accent: #5c31f5;
+  --color-accent-rgb: 92, 49, 245;
+  --color-tag-start: #5630f3;
+  --color-tag-end: #8b6dff;
+  --color-link: #a998ff;
+  --color-success: #67d7a2;
+  --color-success-soft: rgba(103, 215, 162, 0.14);
+  --color-success-border: rgba(103, 215, 162, 0.3);
+  --color-danger: #ff8f9e;
+  --color-danger-soft: rgba(255, 95, 123, 0.14);
+  --color-danger-border: rgba(255, 143, 158, 0.34);
+  --color-overlay: rgba(4, 4, 5, 0.72);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 14px 42px rgba(0, 0, 0, 0.34);
+  --shadow-lg: 0 18px 54px rgba(0, 0, 0, 0.42);
+  --theme-gradient: radial-gradient(circle at top, rgba(161, 161, 170, 0.08), transparent 32%), linear-gradient(180deg, #131315 0%, #0c0c0e 100%);
+
+  color-scheme: dark;
+  color: var(--color-text-soft);
+  background-color: var(--color-bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='midnight'] {
   --color-bg: #090914;
   --color-bg-rgb: 9, 9, 20;
   --color-surface: #14142b;
@@ -41,13 +89,6 @@
   --theme-gradient: radial-gradient(circle at top, rgba(109, 69, 255, 0.2), transparent 32%), linear-gradient(180deg, #0f1024 0%, #090914 100%);
 
   color-scheme: dark;
-  color: var(--color-text-soft);
-  background-color: var(--color-bg);
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 :root[data-theme='light'] {
@@ -128,27 +169,75 @@ select {
   font: inherit;
 }
 
-.theme-toggle-btn {
-  width: 2.65rem;
-  height: 2.65rem;
+.theme-selector {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
+  height: 2.65rem;
   border-radius: 999px;
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface-soft);
-  color: var(--color-text);
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.theme-toggle-btn:hover {
+.theme-selector:hover,
+.theme-selector--expanded {
   background: var(--color-surface-soft-hover);
   border-color: rgba(var(--color-accent-rgb), 0.44);
-  transform: translateY(-1px);
 }
 
-.theme-toggle-btn:focus-visible {
+.theme-selector-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 2.65rem;
+  max-width: 12rem;
+  padding: 0 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, max-width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+}
+
+.theme-selector-btn--hidden {
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-selector-btn--active {
+  color: var(--color-primary-strong);
+}
+
+.theme-selector-btn:hover,
+.theme-selector-btn:focus-visible {
+  color: var(--color-text);
+  background: rgba(var(--color-accent-rgb), 0.14);
+}
+
+.theme-selector-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
+}
+
+.theme-selector-label {
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.2s ease, margin-left 0.2s ease, opacity 0.15s ease;
+}
+
+.theme-selector--expanded .theme-selector-label {
+  max-width: 6rem;
+  margin-left: 0.5rem;
+  opacity: 1;
 }

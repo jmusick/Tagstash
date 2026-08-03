@@ -499,6 +499,16 @@
   color: var(--color-primary-strong);
 }
 
+.home-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.home-footer a:hover {
+  color: var(--color-primary-strong);
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .hero-section {

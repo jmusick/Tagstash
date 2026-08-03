@@ -6,7 +6,7 @@ import AppFooter from './AppFooter'
 import BookmarkBrowser from './BookmarkBrowser'
 import './PublicProfile.css'
 
-function PublicProfile({ logoSrc, theme, onToggleTheme }) {
+function PublicProfile({ logoSrc, theme, onSelectTheme }) {
   const { username } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState(null)
@@ -54,7 +54,7 @@ function PublicProfile({ logoSrc, theme, onToggleTheme }) {
   if (loading || notFound || error) {
     return (
       <div className="app">
-        <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onToggleTheme={onToggleTheme} />
+        <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onSelectTheme={onSelectTheme} />
         <main className="app-main">
           <div className="main-content">
             {loading ? (
@@ -79,7 +79,7 @@ function PublicProfile({ logoSrc, theme, onToggleTheme }) {
 
   return (
     <div className="app">
-      <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onToggleTheme={onToggleTheme} />
+      <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onSelectTheme={onSelectTheme} />
       <main className="app-main">
         <BookmarkBrowser
           bookmarks={bookmarks}

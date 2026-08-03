@@ -960,6 +960,7 @@ async function handleAuth(request, env, segments) {
         role: user.role,
         last_login_at: lastLoginAt,
         profile_public: Number(user.profile_public || 0),
+        theme: user.theme || null,
       },
     });
   }
@@ -1002,9 +1003,8 @@ async function handleAuth(request, env, segments) {
       .run();
 
     const hasProfilePublicColumnForVerify = await usersTableHasColumn(db, 'profile_public');
-    const verifiedUserQuery = hasProfilePublicColumnForVerify
-      ? 'SELECT id, username, email, membership_tier, role, profile_public FROM users WHERE id = ?'
-      : 'SELECT id, username, email, membership_tier, role, 0 AS profile_public FROM users WHERE id = ?';
+    const hasThemeColumnForVerify = await usersTableHasColumn(db, 'theme');
+    const verifiedUserQuery = `SELECT id, username, email, membership_tier, role, ${hasProfilePublicColumnForVerify ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumnForVerify ? 'theme' : 'NULL AS theme'} FROM users WHERE id = ?`;
 
     const verifiedUser = await db
       .prepare(verifiedUserQuery)
@@ -1075,9 +1075,8 @@ async function handleAuth(request, env, segments) {
     if (auth.error) return auth.error;
 
     const hasProfilePublicColumn = await usersTableHasColumn(db, 'profile_public');
-    const meQuery = hasProfilePublicColumn
-      ? 'SELECT id, username, email, membership_tier, role, created_at, profile_public FROM users WHERE id = ?'
-      : 'SELECT id, username, email, membership_tier, role, created_at, 0 AS profile_public FROM users WHERE id = ?';
+    const hasThemeColumn = await usersTableHasColumn(db, 'theme');
+    const meQuery = `SELECT id, username, email, membership_tier, role, created_at, ${hasProfilePublicColumn ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumn ? 'theme' : 'NULL AS theme'} FROM users WHERE id = ?`;
 
     const user = await db
       .prepare(meQuery)
@@ -1265,6 +1264,31 @@ async function handleAuth(request, env, segments) {
     return jsonResponse({
       message: nextValue ? 'Public profile enabled' : 'Public profile disabled',
       user: { profile_public: nextValue },
+    });
+  }
+
+  if (request.method === 'PUT' && segments[1] === 'theme') {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+
+    const hasThemeColumn = await usersTableHasColumn(db, 'theme');
+    if (!hasThemeColumn) {
+      return jsonResponse({ error: 'Theme preferences are not configured yet' }, 503);
+    }
+
+    const { theme } = await parseBody(request);
+    if (!['slate', 'midnight', 'light'].includes(theme)) {
+      return jsonResponse({ error: 'Invalid theme' }, 400);
+    }
+
+    await db
+      .prepare('UPDATE users SET theme = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(theme, auth.user.id)
+      .run();
+
+    return jsonResponse({
+      message: 'Theme updated',
+      user: { theme },
     });
   }
 

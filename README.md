@@ -28,13 +28,13 @@ Current status at a glance:
 - Search, sorting, and tag query filtering
 - Free tier with a 50-bookmark limit
 - Pro tier with unlimited bookmarks
-- Stripe Checkout for upgrades
+- Stripe Checkout for upgrades ($3/month or $36/year — same rate either way)
 - Stripe Billing Portal for subscription management
 - Email verification via Cloudflare Email Sending
 - Opt-in public profiles (`/u/:username`) for sharing your bookmarks via a link, with per-bookmark privacy control and tag filtering
 - Public JSON API (`/api/profiles/:username`, optionally tag-filtered) for embedding your bookmarks on other sites, with ready-to-copy URLs in Settings
 - Super admin controls for managing users, roles, and tiers
-- Light and dark theme support
+- Three theme options (Slate, Midnight, Light), with your pick synced to your account when logged in
 - Responsive UI for desktop and mobile
 - Firefox/browser extension companion for saving the current tab quickly
 - Refresh button plus a quiet 5-minute background poll so bookmarks saved elsewhere (e.g. the browser extension) show up without a page reload
@@ -162,6 +162,7 @@ Production setup includes:
 - `PUT /api/auth/email`
 - `PUT /api/auth/password`
 - `PUT /api/auth/profile-public`
+- `PUT /api/auth/theme`
 - `GET /api/auth/api-keys`
 - `POST /api/auth/api-keys`
 - `DELETE /api/auth/api-keys/:id`

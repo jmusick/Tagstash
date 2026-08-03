@@ -7,7 +7,7 @@ import Home from './components/Home'
 import BookmarkBrowser from './components/BookmarkBrowser'
 import AppHeader from './components/AppHeader'
 import AppFooter from './components/AppFooter'
-import { bookmarksAPI, billingAPI } from './api/api'
+import { authAPI, bookmarksAPI, billingAPI } from './api/api'
 
 const Settings = lazy(() => import('./components/Settings'))
 const TagsPage = lazy(() => import('./components/TagsPage'))
@@ -17,10 +17,10 @@ const VerifyEmail = lazy(() => import('./components/VerifyEmail'))
 const ResetPassword = lazy(() => import('./components/ResetPassword'))
 const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
+import { THEME_STORAGE_KEY, isValidTheme } from './utils/theme'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
-const THEME_STORAGE_KEY = 'tagstash-theme'
 
 const normalizeBookmarkUrl = (value) => {
   const raw = (value || '').trim()
@@ -61,15 +61,15 @@ const ActionInfo = ({ text }) => (
 
 const getInitialTheme = () => {
   if (typeof window === 'undefined') {
-    return 'dark'
+    return 'slate'
   }
 
   const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (storedTheme === 'light' || storedTheme === 'dark') {
+  if (isValidTheme(storedTheme)) {
     return storedTheme
   }
 
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'slate'
 }
 
 function App() {
@@ -125,13 +125,20 @@ function App() {
   const bookmarkUsageCount = bookmarks.length
   const freeUsagePercent = Math.min(100, Math.round((bookmarkUsageCount / FREE_BOOKMARK_LIMIT) * 100))
   const isFreeLimitReached = !isPaidMember && bookmarks.length >= FREE_BOOKMARK_LIMIT
-  const logoSrc = theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'
+  const logoSrc = theme === 'light' ? '/logo-light.png' : '/logo-dark.png'
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    document.documentElement.style.colorScheme = theme
+    document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark'
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
+
+  // Logged-in users' saved theme preference takes precedence over the local browser default.
+  useEffect(() => {
+    if (user && isValidTheme(user.theme)) {
+      setTheme(user.theme)
+    }
+  }, [user])
 
   useEffect(() => {
     if (user) {
@@ -152,8 +159,11 @@ function App() {
     return () => clearInterval(interval)
   }, [user])
 
-  const toggleTheme = () => {
-    setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
+  const selectTheme = (nextTheme) => {
+    setTheme(nextTheme)
+    if (user) {
+      authAPI.updateTheme(nextTheme).catch(() => {})
+    }
   }
 
   const handleLogoClick = () => {
@@ -847,7 +857,7 @@ function App() {
   }
 
   const homeElement = (
-    <Home logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} onNavigate={(page) => navigate('/' + page)} />
+    <Home logoSrc={logoSrc} theme={theme} onSelectTheme={selectTheme} onNavigate={(page) => navigate('/' + page)} />
   )
 
   return (
@@ -855,7 +865,7 @@ function App() {
       <Routes>
         <Route path="/verify-email" element={<VerifyEmail logoSrc={logoSrc} />} />
         <Route path="/reset-password" element={<ResetPassword logoSrc={logoSrc} />} />
-        <Route path="/u/:username" element={<PublicProfile logoSrc={logoSrc} theme={theme} onToggleTheme={toggleTheme} />} />
+        <Route path="/u/:username" element={<PublicProfile logoSrc={logoSrc} theme={theme} onSelectTheme={selectTheme} />} />
         <Route path="/privacy" element={<PolicyPage logoSrc={logoSrc} onBack={() => navigate('/')} />} />
         <Route
           path="/support"
@@ -871,7 +881,7 @@ function App() {
                   tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
-                  onToggleTheme={toggleTheme}
+                  onSelectTheme={selectTheme}
                 >
                   <span>Welcome, {user.username}!</span>
                   <button
@@ -911,7 +921,7 @@ function App() {
                   tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
-                  onToggleTheme={toggleTheme}
+                  onSelectTheme={selectTheme}
                 >
                   <span>Welcome, {user.username}!</span>
                   <button
@@ -951,7 +961,7 @@ function App() {
                   tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
-                  onToggleTheme={toggleTheme}
+                  onSelectTheme={selectTheme}
                 >
                   <span>Welcome, {user.username}!</span>
                   <button
