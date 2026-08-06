@@ -18,7 +18,8 @@ const ResetPassword = lazy(() => import('./components/ResetPassword'))
 const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
 import { THEME_STORAGE_KEY, isValidTheme } from './utils/theme'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle } from 'lucide-react'
+import { getRegistrableDomain } from './utils/domain'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2 } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 
@@ -78,6 +79,7 @@ function App() {
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [browserResetKey, setBrowserResetKey] = useState(0)
+  const [clearRelatedFilterSignal, setClearRelatedFilterSignal] = useState(0)
   const [focusBookmarkId, setFocusBookmarkId] = useState(null)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -191,6 +193,7 @@ function App() {
     if (focusBookmarkId) {
       handleCancelEdit()
     }
+    setClearRelatedFilterSignal((prev) => prev + 1)
     setRefreshing(true)
     try {
       await fetchBookmarks({ silent: true })
@@ -225,6 +228,16 @@ function App() {
     ))
 
     return Array.from(new Set(tagNames)).sort((left, right) => left.localeCompare(right))
+  }, [bookmarks])
+
+  const domainCounts = useMemo(() => {
+    const counts = new Map()
+    for (const bookmark of bookmarks) {
+      const domain = getRegistrableDomain(bookmark.url)
+      if (!domain) continue
+      counts.set(domain, (counts.get(domain) || 0) + 1)
+    }
+    return counts
   }, [bookmarks])
 
   const handleTagFavoriteToggle = async (tag) => {
@@ -644,7 +657,7 @@ function App() {
     }
   }
 
-  const renderOwnerCard = (bookmark) => {
+  const renderOwnerCard = (bookmark, { onShowRelated } = {}) => {
     const isEditing = editingBookmarkId === bookmark.id
     const isFavorite = Boolean(bookmark.is_favorite)
     const isPrivate = Boolean(bookmark.is_private)
@@ -653,6 +666,8 @@ function App() {
       : bookmark.favicon_url
     const displayTitle = decodeHtmlEntities(bookmark.title || '')
     const displayDescription = decodeHtmlEntities(bookmark.description || '')
+    const bookmarkDomain = getRegistrableDomain(bookmark.url)
+    const hasRelated = bookmarkDomain && (domainCounts.get(bookmarkDomain) || 0) > 1
 
     return (
       <div className="bookmark-card" id={`bookmark-${bookmark.id}`}>
@@ -667,6 +682,17 @@ function App() {
           )}
           <h3>{displayTitle}</h3>
           <div className="bookmark-actions">
+            {hasRelated && (
+              <button
+                type="button"
+                onClick={() => onShowRelated?.(bookmark.url)}
+                className="related-btn"
+                title={`Show other bookmarks from ${bookmarkDomain}`}
+              >
+                <Link2 size={14} />
+                <span>Related</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => handleStartEdit(bookmark)}
@@ -992,6 +1018,7 @@ function App() {
                     loading={loading}
                     tagsRefreshKey={tagsRefreshKey}
                     onTagFavoriteToggle={handleTagFavoriteToggle}
+                    clearRelatedFilterSignal={clearRelatedFilterSignal}
                     renderCard={renderOwnerCard}
                     focusBookmarkId={focusBookmarkId}
                     toolbarExtra={(

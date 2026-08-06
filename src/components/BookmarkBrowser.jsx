@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { Star, Search, X } from 'lucide-react'
 import TagCloud from './TagCloud'
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities'
+import { getRegistrableDomain } from '../utils/domain'
 
 function DefaultCard({ bookmark }) {
   const displayTitle = decodeHtmlEntities(bookmark.title || '')
@@ -51,6 +52,7 @@ function BookmarkBrowser({
   initialSelectedTags,
   onSelectedTagsChange,
   focusBookmarkId,
+  clearRelatedFilterSignal,
   children,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -60,6 +62,7 @@ function BookmarkBrowser({
   const [sortDirection, setSortDirection] = useState('desc')
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [currentPage, setCurrentPage] = useState(1)
+  const [domainFilter, setDomainFilter] = useState(null)
 
   useEffect(() => {
     onSelectedTagsChange?.(selectedTags)
@@ -102,6 +105,10 @@ function BookmarkBrowser({
       return sortedBookmarks.filter((bookmark) => bookmark.id === focusBookmarkId)
     }
 
+    if (domainFilter) {
+      return sortedBookmarks.filter((bookmark) => getRegistrableDomain(bookmark.url) === domainFilter)
+    }
+
     const query = searchTerm.trim().toLowerCase()
     return sortedBookmarks.filter((bookmark) => {
       const tagsText = Array.isArray(bookmark.tags)
@@ -130,11 +137,11 @@ function BookmarkBrowser({
 
       return matchesSearch && matchesTag && matchesFavorite
     })
-  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly, focusBookmarkId])
+  }, [sortedBookmarks, searchTerm, selectedTags, showFavoritesOnly, focusBookmarkId, domainFilter])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedTags, sortBy, sortDirection, itemsPerPage])
+  }, [searchTerm, selectedTags, sortBy, sortDirection, itemsPerPage, domainFilter])
 
   const totalPages = Math.max(1, Math.ceil(filteredBookmarks.length / itemsPerPage))
 
@@ -156,8 +163,28 @@ function BookmarkBrowser({
     setSearchTerm('')
     setSelectedTags([])
     setShowFavoritesOnly(false)
+    setDomainFilter(null)
     setCurrentPage(1)
   }, [focusBookmarkId])
+
+  // Clicking "Related" replaces whatever filter was active with a same-domain view.
+  const handleShowRelated = (url) => {
+    const domain = getRegistrableDomain(url)
+    if (!domain) return
+    setSearchTerm('')
+    setSelectedTags([])
+    setShowFavoritesOnly(false)
+    setDomainFilter(domain)
+  }
+
+  const handleClearDomainFilter = () => setDomainFilter(null)
+
+  useEffect(() => {
+    if (clearRelatedFilterSignal === undefined) return
+    setDomainFilter(null)
+    // Only fire when the signal itself changes, not on every parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearRelatedFilterSignal])
 
   // Scroll the focused bookmark into view once it's rendered as the sole card.
   useEffect(() => {
@@ -171,6 +198,7 @@ function BookmarkBrowser({
     const normalized = tagName?.trim().toLowerCase()
     if (!normalized) return
 
+    setDomainFilter(null)
     setSelectedTags([normalized])
   }
 
@@ -178,6 +206,7 @@ function BookmarkBrowser({
     const normalized = tagName?.trim().toLowerCase()
     if (!normalized) return
 
+    setDomainFilter(null)
     setSelectedTags((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
   }
 
@@ -218,7 +247,7 @@ function BookmarkBrowser({
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setDomainFilter(null); setSearchTerm(e.target.value) }}
               placeholder="Search bookmarks"
               aria-label="Search bookmarks"
             />
@@ -226,7 +255,7 @@ function BookmarkBrowser({
               <button
                 type="button"
                 className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
-                onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                onClick={() => { setDomainFilter(null); setShowFavoritesOnly((prev) => !prev) }}
                 aria-label={showFavoritesOnly ? 'Show all bookmarks' : 'Show favorite bookmarks only'}
                 title={showFavoritesOnly ? 'Showing favorites only' : 'Show favorite bookmarks only'}
                 aria-pressed={showFavoritesOnly}
@@ -282,7 +311,7 @@ function BookmarkBrowser({
           ) : filteredBookmarks.length === 0 ? (
             <div className="empty-state">
               <p>
-                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly || focusBookmarkId
+                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly || focusBookmarkId || domainFilter
                   ? 'No bookmarks match your search.'
                   : emptyStateMessage}
               </p>
@@ -292,7 +321,7 @@ function BookmarkBrowser({
               <div className="bookmarks-grid">
                 {paginatedBookmarks.map((bookmark) => (
                   <Fragment key={bookmark.id}>
-                    {renderCard ? renderCard(bookmark) : <DefaultCard bookmark={bookmark} />}
+                    {renderCard ? renderCard(bookmark, { onShowRelated: handleShowRelated }) : <DefaultCard bookmark={bookmark} />}
                   </Fragment>
                 ))}
               </div>
@@ -323,6 +352,16 @@ function BookmarkBrowser({
       </div>
 
       <aside className="sidebar">
+        {domainFilter && (
+          <div className="active-tag-filter sidebar-tag-filter">
+            <div className="active-tag-filter-head">
+              <span>Related: {domainFilter}</span>
+              <button type="button" onClick={handleClearDomainFilter} aria-label="Clear related bookmarks filter">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
         {selectedTags.length > 0 && (
           <div className="active-tag-filter sidebar-tag-filter">
             <div className="active-tag-filter-head">

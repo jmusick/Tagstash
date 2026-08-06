@@ -1060,6 +1060,25 @@
   color: var(--color-text);
 }
 
+.related-btn {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-primary-strong);
+  border-radius: 6px;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.related-btn:hover {
+  background: var(--color-surface-soft-hover);
+  color: var(--color-text);
+}
+
 .favorite-btn {
   background: none;
   border: none;
