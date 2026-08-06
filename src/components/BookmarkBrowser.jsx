@@ -52,7 +52,7 @@ function BookmarkBrowser({
   initialSelectedTags,
   onSelectedTagsChange,
   focusBookmarkId,
-  clearRelatedFilterSignal,
+  onClearFocus,
   children,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -179,13 +179,6 @@ function BookmarkBrowser({
 
   const handleClearDomainFilter = () => setDomainFilter(null)
 
-  useEffect(() => {
-    if (clearRelatedFilterSignal === undefined) return
-    setDomainFilter(null)
-    // Only fire when the signal itself changes, not on every parent re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearRelatedFilterSignal])
-
   // Scroll the focused bookmark into view once it's rendered as the sole card.
   useEffect(() => {
     if (!focusBookmarkId) return
@@ -199,6 +192,7 @@ function BookmarkBrowser({
     if (!normalized) return
 
     setDomainFilter(null)
+    if (focusBookmarkId) onClearFocus?.()
     setSelectedTags([normalized])
   }
 
@@ -207,6 +201,7 @@ function BookmarkBrowser({
     if (!normalized) return
 
     setDomainFilter(null)
+    if (focusBookmarkId) onClearFocus?.()
     setSelectedTags((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
   }
 
@@ -216,55 +211,75 @@ function BookmarkBrowser({
     setSelectedTags((prev) => prev.filter((tag) => tag !== normalized))
   }
 
+  const hasActiveFilters = Boolean(
+    searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly || domainFilter || focusBookmarkId
+  )
+
+  const activeFilterChipLabel = focusBookmarkId
+    ? 'Random'
+    : domainFilter
+      ? `Related: ${domainFilter}`
+      : null
+
+  const handleClearAllFilters = () => {
+    setSearchTerm('')
+    setSelectedTags([])
+    setShowFavoritesOnly(false)
+    setDomainFilter(null)
+    if (focusBookmarkId) onClearFocus?.()
+  }
+
   return (
     <>
       <div className="main-content">
         <div className="toolbar">
-          <div className="sort-control">
-            <label htmlFor="sortBy">Sort by</label>
-            <select
-              id="sortBy"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="date">Date saved (newest)</option>
-              <option value="lastUpdated">Last updated</option>
-              <option value="alpha">Alphabetical (A-Z)</option>
-              <option value="url">URL (A-Z)</option>
-            </select>
-            <select
-              id="sortDirection"
-              aria-label="Sort direction"
-              value={sortDirection}
-              onChange={(e) => setSortDirection(e.target.value)}
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
+          <div className="toolbar-row toolbar-row-actions">
+            <div className="search-control">
+              <Search size={16} className="search-icon" />
+              {activeFilterChipLabel && (
+                <span className="search-filter-chip">{activeFilterChipLabel}</span>
+              )}
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setDomainFilter(null)
+                  if (focusBookmarkId) onClearFocus?.()
+                  setSearchTerm(e.target.value)
+                }}
+                placeholder={activeFilterChipLabel ? '' : 'Search bookmarks'}
+                aria-label="Search bookmarks"
+              />
+              {showFavoritesFilter && (
+                <button
+                  type="button"
+                  className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
+                  onClick={() => {
+                    setDomainFilter(null)
+                    if (focusBookmarkId) onClearFocus?.()
+                    setShowFavoritesOnly((prev) => !prev)
+                  }}
+                  aria-label={showFavoritesOnly ? 'Show all bookmarks' : 'Show favorite bookmarks only'}
+                  title={showFavoritesOnly ? 'Showing favorites only' : 'Show favorite bookmarks only'}
+                  aria-pressed={showFavoritesOnly}
+                >
+                  <Star size={16} fill={showFavoritesOnly ? 'currentColor' : 'none'} />
+                </button>
+              )}
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="clear-filters-btn"
+                  onClick={handleClearAllFilters}
+                  aria-label="Clear all filters"
+                  title="Clear search, tags, favorites, and related filters"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            {toolbarExtra}
           </div>
-          <div className="search-control">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => { setDomainFilter(null); setSearchTerm(e.target.value) }}
-              placeholder="Search bookmarks"
-              aria-label="Search bookmarks"
-            />
-            {showFavoritesFilter && (
-              <button
-                type="button"
-                className={`favorites-filter-btn ${showFavoritesOnly ? 'active' : ''}`}
-                onClick={() => { setDomainFilter(null); setShowFavoritesOnly((prev) => !prev) }}
-                aria-label={showFavoritesOnly ? 'Show all bookmarks' : 'Show favorite bookmarks only'}
-                title={showFavoritesOnly ? 'Showing favorites only' : 'Show favorite bookmarks only'}
-                aria-pressed={showFavoritesOnly}
-              >
-                <Star size={16} fill={showFavoritesOnly ? 'currentColor' : 'none'} />
-              </button>
-            )}
-          </div>
-          {toolbarExtra}
         </div>
 
         {children}
@@ -272,18 +287,42 @@ function BookmarkBrowser({
         <div className="bookmarks-section">
           {filteredBookmarks.length > 0 && (
             <div className="pagination-toolbar">
-              <div className="pagination-page-size">
-                <label htmlFor="itemsPerPage">Show</label>
-                <select
-                  id="itemsPerPage"
-                  value={itemsPerPage}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={40}>40</option>
-                  <option value={80}>80</option>
-                </select>
+              <div className="pagination-toolbar-group">
+                <div className="sort-control">
+                  <label htmlFor="sortBy">Sort by</label>
+                  <select
+                    id="sortBy"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="date">Date saved (newest)</option>
+                    <option value="lastUpdated">Last updated</option>
+                    <option value="alpha">Alphabetical (A-Z)</option>
+                    <option value="url">URL (A-Z)</option>
+                  </select>
+                  <select
+                    id="sortDirection"
+                    aria-label="Sort direction"
+                    value={sortDirection}
+                    onChange={(e) => setSortDirection(e.target.value)}
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </div>
+                <div className="pagination-page-size">
+                  <label htmlFor="itemsPerPage">Show</label>
+                  <select
+                    id="itemsPerPage"
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={40}>40</option>
+                    <option value={80}>80</option>
+                  </select>
+                </div>
               </div>
               <div className="pagination-controls">
                 <button

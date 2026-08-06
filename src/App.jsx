@@ -79,7 +79,6 @@ function App() {
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [browserResetKey, setBrowserResetKey] = useState(0)
-  const [clearRelatedFilterSignal, setClearRelatedFilterSignal] = useState(0)
   const [focusBookmarkId, setFocusBookmarkId] = useState(null)
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -190,10 +189,6 @@ function App() {
   }
 
   const handleRefreshBookmarks = async () => {
-    if (focusBookmarkId) {
-      handleCancelEdit()
-    }
-    setClearRelatedFilterSignal((prev) => prev + 1)
     setRefreshing(true)
     try {
       await fetchBookmarks({ silent: true })
@@ -1018,22 +1013,11 @@ function App() {
                     loading={loading}
                     tagsRefreshKey={tagsRefreshKey}
                     onTagFavoriteToggle={handleTagFavoriteToggle}
-                    clearRelatedFilterSignal={clearRelatedFilterSignal}
                     renderCard={renderOwnerCard}
                     focusBookmarkId={focusBookmarkId}
+                    onClearFocus={handleCancelEdit}
                     toolbarExtra={(
             <>
-              <button
-                type="button"
-                className={`btn-secondary refresh-btn ${refreshing ? 'spinning' : ''}`}
-                onClick={handleRefreshBookmarks}
-                disabled={refreshing}
-                title="Refresh bookmarks (e.g. after saving via the browser extension)"
-                aria-label="Refresh bookmarks"
-              >
-                <RefreshCw size={16} className="btn-icon" />
-                <span>Refresh</span>
-              </button>
               <button
                 type="button"
                 className="btn-secondary random-btn"
@@ -1044,6 +1028,17 @@ function App() {
               >
                 <Shuffle size={16} className="btn-icon" />
                 <span>Random</span>
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary refresh-btn ${refreshing ? 'spinning' : ''}`}
+                onClick={handleRefreshBookmarks}
+                disabled={refreshing}
+                title="Refresh bookmarks (e.g. after saving via the browser extension)"
+                aria-label="Refresh bookmarks"
+              >
+                <RefreshCw size={16} className="btn-icon" />
+                <span>Refresh</span>
               </button>
               <button
                 className="btn-primary"

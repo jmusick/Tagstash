@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { bookmarksAPI } from '../api/api';
-import { Tag, Search, Plus, Star } from 'lucide-react';
+import { Tag, Search, Plus, Star, X } from 'lucide-react';
 import './TagCloud.css';
 
 function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0, showActions = true }) {
@@ -60,6 +60,17 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
           placeholder="Filter tags"
           aria-label="Filter tags"
         />
+        {tagSearch && (
+          <button
+            type="button"
+            className="tag-cloud-search-clear"
+            onClick={() => setTagSearch('')}
+            aria-label="Clear tag filter"
+            title="Clear tag filter"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {loading ? (
