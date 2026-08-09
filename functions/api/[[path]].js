@@ -188,22 +188,109 @@ const extractDomain = (url) => {
 
 const getFaviconUrl = (url) => `https://www.google.com/s2/favicons?sz=64&domain=${extractDomain(url)}`;
 
+// Scraped titles/descriptions come straight out of the HTML source, so they arrive
+// entity-encoded (`&amp;`, `&#x27;`). Decode once here so what we store is plain text —
+// there's no DOMParser in Workers to do it for us.
+const HTML_NAMED_ENTITIES = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  ensp: ' ',
+  emsp: ' ',
+  thinsp: ' ',
+  shy: '',
+  hellip: '…',
+  mdash: '—',
+  ndash: '–',
+  lsquo: '‘',
+  rsquo: '’',
+  sbquo: '‚',
+  ldquo: '“',
+  rdquo: '”',
+  bdquo: '„',
+  laquo: '«',
+  raquo: '»',
+  bull: '•',
+  middot: '·',
+  dagger: '†',
+  prime: '′',
+  Prime: '″',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+  deg: '°',
+  plusmn: '±',
+  times: '×',
+  divide: '÷',
+  frac12: '½',
+  euro: '€',
+  pound: '£',
+  yen: '¥',
+  cent: '¢',
+  sect: '§',
+  para: '¶',
+  micro: 'µ',
+  larr: '←',
+  rarr: '→',
+  harr: '↔',
+};
+
+const decodeHtmlEntities = (value) => {
+  if (!value || typeof value !== 'string' || !value.includes('&')) {
+    return value;
+  }
+
+  return value.replace(/&(#[Xx][0-9A-Fa-f]+|#\d+|[A-Za-z][A-Za-z0-9]{1,31});/g, (match, entity) => {
+    if (entity[0] === '#') {
+      const isHex = entity[1] === 'x' || entity[1] === 'X';
+      const codePoint = Number.parseInt(isHex ? entity.slice(2) : entity.slice(1), isHex ? 16 : 10);
+      if (!Number.isInteger(codePoint) || codePoint <= 0 || codePoint > 0x10ffff) {
+        return match;
+      }
+      try {
+        return String.fromCodePoint(codePoint);
+      } catch {
+        return match;
+      }
+    }
+
+    const named = Object.prototype.hasOwnProperty.call(HTML_NAMED_ENTITIES, entity)
+      ? HTML_NAMED_ENTITIES[entity]
+      : HTML_NAMED_ENTITIES[entity.toLowerCase()];
+    return named === undefined ? match : named;
+  });
+};
+
+const cleanScrapedText = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const cleaned = decodeHtmlEntities(value).replace(/\s+/g, ' ').trim();
+  return cleaned || null;
+};
+
 const extractMetaDescription = (html) => {
   if (!html || typeof html !== 'string') {
     return null;
   }
 
+  // The quote character is captured and back-referenced so an apostrophe inside a
+  // double-quoted description (or vice versa) doesn't truncate the match.
   const patterns = [
-    /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["'][^>]*>/i,
-    /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["'][^>]*>/i,
+    /<meta[^>]*name=["']description["'][^>]*content=(["'])([\s\S]*?)\1/i,
+    /<meta[^>]*content=(["'])([\s\S]*?)\1[^>]*name=["']description["']/i,
+    /<meta[^>]*property=["']og:description["'][^>]*content=(["'])([\s\S]*?)\1/i,
+    /<meta[^>]*content=(["'])([\s\S]*?)\1[^>]*property=["']og:description["']/i,
   ];
 
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) {
-      return match[1].replace(/\s+/g, ' ').trim();
+    const cleaned = cleanScrapedText(match?.[2]);
+    if (cleaned) {
+      return cleaned;
     }
   }
 
@@ -216,11 +303,7 @@ const extractPageTitle = (html) => {
   }
 
   const match = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-  if (!match?.[1]) {
-    return null;
-  }
-
-  return match[1].replace(/\s+/g, ' ').trim() || null;
+  return cleanScrapedText(match?.[1]);
 };
 
 const toHex = (bytes) =>
