@@ -19,7 +19,7 @@ const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
 import { THEME_STORAGE_KEY, isValidTheme } from './utils/theme'
 import { getRegistrableDomain } from './utils/domain'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2 } from 'lucide-react'
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2, ExternalLink } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 
@@ -755,6 +755,15 @@ function App() {
                 <label htmlFor={`edit-url-${bookmark.id}`}>URL</label>
                 {editFormData.url && (
                   <div className="field-actions">
+                    <a
+                      className="btn-field-action"
+                      href={normalizeBookmarkUrl(editFormData.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink size={13} /><span>Open</span>
+                      <ActionInfo text="Opens the URL currently in the field in a new browser tab." />
+                    </a>
                     <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
                       <Globe size={13} /><span>Base URL</span>
                       <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />

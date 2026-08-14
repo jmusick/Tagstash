@@ -799,7 +799,20 @@
   position: relative;
 }
 
-.btn-field-action:hover {
+/* .bookmark-card a (later in this file) would otherwise win on specificity and
+   force display:block / dimmed color / smaller text on the anchor variant. */
+a.btn-field-action,
+.bookmark-card a.btn-field-action {
+  display: inline-flex;
+  text-decoration: none;
+  color: var(--color-primary-strong);
+  opacity: 1;
+  font-size: 0.78rem;
+  word-break: normal;
+}
+
+.btn-field-action:hover,
+.bookmark-card a.btn-field-action:hover {
   border-color: var(--color-primary-strong);
   color: var(--color-text);
 }
