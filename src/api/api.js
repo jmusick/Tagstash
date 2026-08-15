@@ -71,6 +71,9 @@ export const authAPI = {
   updateTheme: (theme) =>
     api.put('/auth/theme', { theme }),
 
+  updateLinkTarget: (linkTarget) =>
+    api.put('/auth/link-target', { linkTarget }),
+
   adminListUsers: () =>
     api.get('/auth/admin/users'),
 

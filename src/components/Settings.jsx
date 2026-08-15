@@ -3,9 +3,16 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI, billingAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2, CreditCard, Zap, CheckCircle } from 'lucide-react';
 import Import from './Import';
+import { DEFAULT_LINK_TARGET, LINK_TARGET_ORDER, LINK_TARGET_LABELS } from '../utils/linkTarget';
 import './Settings.css';
 
-function Settings({ onClose, pageMode = false, onImportComplete }) {
+function Settings({
+  onClose,
+  pageMode = false,
+  onImportComplete,
+  linkTarget = DEFAULT_LINK_TARGET,
+  onSelectLinkTarget,
+}) {
   const { user, updateUser } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const currentMembershipTier = user?.membership_tier || user?.membershipTier || 'free';
@@ -530,6 +537,16 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
           >
             Public Profile
           </button>
+          <button
+            className={`tab-btn ${activeTab === 'preferences' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('preferences');
+              setError('');
+              setSuccess('');
+            }}
+          >
+            Preferences
+          </button>
           {/* API Keys tab hidden
           <button
             className={`tab-btn ${activeTab === 'apiKeys' ? 'active' : ''}`}
@@ -800,6 +817,33 @@ function Settings({ onClose, pageMode = false, onImportComplete }) {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div className="settings-form">
+            <div>
+              <strong>Open bookmark links in</strong>
+              <p>
+                Where a bookmark opens when you click its link on this site. Saved to your account,
+                so it follows you to any browser you sign in from. The browser extension has its own
+                separate setting for its sidebar list.
+              </p>
+            </div>
+            <div className="preference-options" role="radiogroup" aria-label="Open bookmark links in">
+              {LINK_TARGET_ORDER.map((option) => (
+                <label key={option} className="toggle-row">
+                  <input
+                    type="radio"
+                    name="link-target"
+                    value={option}
+                    checked={linkTarget === option}
+                    onChange={() => onSelectLinkTarget?.(option)}
+                  />
+                  <span>{LINK_TARGET_LABELS[option]}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

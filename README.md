@@ -35,6 +35,7 @@ Current status at a glance:
 - Public JSON API (`/api/profiles/:username`, optionally tag-filtered) for embedding your bookmarks on other sites, with ready-to-copy URLs in Settings
 - Super admin controls for managing users, roles, and tiers
 - Three theme options (Slate, Midnight, Light), with your pick synced to your account when logged in
+- Preference for opening bookmark links in a new tab or the same tab (Settings → Preferences), synced to your account
 - Responsive UI for desktop and mobile
 - Firefox/browser extension companion for saving the current tab quickly
 - Refresh button plus a quiet 5-minute background poll so bookmarks saved elsewhere (e.g. the browser extension) show up without a page reload
@@ -163,6 +164,7 @@ Production setup includes:
 - `PUT /api/auth/password`
 - `PUT /api/auth/profile-public`
 - `PUT /api/auth/theme`
+- `PUT /api/auth/link-target`
 - `GET /api/auth/api-keys`
 - `POST /api/auth/api-keys`
 - `DELETE /api/auth/api-keys/:id`

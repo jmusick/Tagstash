@@ -18,6 +18,7 @@ const ResetPassword = lazy(() => import('./components/ResetPassword'))
 const PublicProfile = lazy(() => import('./components/PublicProfile'))
 import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
 import { THEME_STORAGE_KEY, isValidTheme } from './utils/theme'
+import { LINK_TARGET_STORAGE_KEY, getInitialLinkTarget, isValidLinkTarget, linkTargetProps } from './utils/linkTarget'
 import { getRegistrableDomain } from './utils/domain'
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2, ExternalLink } from 'lucide-react'
 
@@ -76,6 +77,7 @@ const getInitialTheme = () => {
 function App() {
   const { user, loading: authLoading, logout } = useAuth()
   const [theme, setTheme] = useState(getInitialTheme)
+  const [linkTarget, setLinkTarget] = useState(getInitialLinkTarget)
   const [bookmarks, setBookmarks] = useState([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [browserResetKey, setBrowserResetKey] = useState(0)
@@ -134,10 +136,21 @@ function App() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
+  useEffect(() => {
+    window.localStorage.setItem(LINK_TARGET_STORAGE_KEY, linkTarget)
+  }, [linkTarget])
+
   // Logged-in users' saved theme preference takes precedence over the local browser default.
   useEffect(() => {
     if (user && isValidTheme(user.theme)) {
       setTheme(user.theme)
+    }
+  }, [user])
+
+  // Same for the saved link-opening preference (null for accounts that never picked one).
+  useEffect(() => {
+    if (user && isValidLinkTarget(user.link_target)) {
+      setLinkTarget(user.link_target)
     }
   }, [user])
 
@@ -164,6 +177,16 @@ function App() {
     setTheme(nextTheme)
     if (user) {
       authAPI.updateTheme(nextTheme).catch(() => {})
+    }
+  }
+
+  // Saved to the account like the theme. The browser extension has its own
+  // extension-local setting and never reads this one.
+  const selectLinkTarget = (nextLinkTarget) => {
+    if (!isValidLinkTarget(nextLinkTarget)) return
+    setLinkTarget(nextLinkTarget)
+    if (user) {
+      authAPI.updateLinkTarget(nextLinkTarget).catch(() => {})
     }
   }
 
@@ -758,11 +781,10 @@ function App() {
                     <a
                       className="btn-field-action"
                       href={normalizeBookmarkUrl(editFormData.url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      {...linkTargetProps(linkTarget)}
                     >
                       <ExternalLink size={13} /><span>Open</span>
-                      <ActionInfo text="Opens the URL currently in the field in a new browser tab." />
+                      <ActionInfo text={`Opens the URL currently in the field in ${linkTarget === 'same' ? 'this browser tab' : 'a new browser tab'}.`} />
                     </a>
                     <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
                       <Globe size={13} /><span>Base URL</span>
@@ -858,7 +880,7 @@ function App() {
           </div>
         ) : (
           <>
-            <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
+            <a href={bookmark.url} {...linkTargetProps(linkTarget)}>
               {bookmark.url}
             </a>
             {displayDescription && (
@@ -895,7 +917,7 @@ function App() {
       <Routes>
         <Route path="/verify-email" element={<VerifyEmail logoSrc={logoSrc} />} />
         <Route path="/reset-password" element={<ResetPassword logoSrc={logoSrc} />} />
-        <Route path="/u/:username" element={<PublicProfile logoSrc={logoSrc} theme={theme} onSelectTheme={selectTheme} />} />
+        <Route path="/u/:username" element={<PublicProfile logoSrc={logoSrc} theme={theme} onSelectTheme={selectTheme} linkTarget={linkTarget} />} />
         <Route path="/privacy" element={<PolicyPage logoSrc={logoSrc} onBack={() => navigate('/')} />} />
         <Route
           path="/support"
@@ -929,7 +951,12 @@ function App() {
 
                 <main className="app-main settings-page-main">
                   <div className="main-content settings-page-content">
-                    <Settings pageMode onImportComplete={fetchBookmarks} />
+                    <Settings
+                      pageMode
+                      onImportComplete={fetchBookmarks}
+                      linkTarget={linkTarget}
+                      onSelectLinkTarget={selectLinkTarget}
+                    />
                   </div>
                 </main>
                 <AppFooter>
@@ -1020,6 +1047,7 @@ function App() {
                     key={browserResetKey}
                     bookmarks={bookmarks}
                     loading={loading}
+                    linkTarget={linkTarget}
                     tagsRefreshKey={tagsRefreshKey}
                     onTagFavoriteToggle={handleTagFavoriteToggle}
                     renderCard={renderOwnerCard}

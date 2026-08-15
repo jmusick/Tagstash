@@ -111,6 +111,14 @@ Three themes — `slate` (neutral grey, default), `midnight` (the original purpl
 
 `App.jsx` owns the state: `theme` (`useState`, initialized from `localStorage['tagstash-theme']` or `prefers-color-scheme`), applied via `document.documentElement.dataset.theme` in a `useEffect`. `selectTheme(nextTheme)` sets it directly (no cycling) and, when logged in, fires `authAPI.updateTheme(nextTheme)` (`PUT /api/auth/theme`, guarded by `usersTableHasColumn(db, 'theme')` per the migration pattern above) to persist to `users.theme`. A separate effect applies `user.theme` over the local value whenever `user` loads/changes — so a logged-in account's saved theme wins over `localStorage` on that browser, while logged-out visitors still get `localStorage`/system-preference behavior.
 
+## Link-opening preference: same shape as theme, but don't share it with the extension
+
+"Open bookmark links in a new tab / the same tab" (Settings → Preferences) is stored per account in `users.link_target` (`'new' | 'same'`, nullable — `NULL` means never picked), written by `PUT /api/auth/link-target` behind the usual `usersTableHasColumn(db, 'link_target')` guard, and returned by `/auth/login`, `/auth/me`, and the verify-email handler. `App.jsx` owns the state exactly like `theme`: `localStorage['tagstash-link-target']` for first paint and anonymous public-profile visitors, overridden by `user.link_target` once the account loads.
+
+`src/utils/linkTarget.js` is the single source of truth (`LINK_TARGET_ORDER`/`LINK_TARGET_LABELS`/`isValidLinkTarget`/`linkTargetProps`). Apply it by spreading `linkTargetProps(linkTarget)` onto the anchor rather than hardcoding `target="_blank" rel="noopener noreferrer"` — that helper is what drops both attributes for the same-tab case. It's meant for **bookmark URLs only** (the card link, the edit form's "Open" button); site chrome like the footer and marketing links stays `_blank` unconditionally.
+
+The browser extension has its own equivalent setting (sidebar cog → "Open bookmarks in"), stored in `browser.storage.local` and **deliberately never synced with this one** — unlike `theme`, which the extension mirrors from the account. Don't "fix" that asymmetry by making the extension read `user.link_target`.
+
 ## Local dev workflow
 
 ```bash

@@ -1044,6 +1044,7 @@ async function handleAuth(request, env, segments) {
         last_login_at: lastLoginAt,
         profile_public: Number(user.profile_public || 0),
         theme: user.theme || null,
+        link_target: user.link_target || null,
       },
     });
   }
@@ -1087,7 +1088,8 @@ async function handleAuth(request, env, segments) {
 
     const hasProfilePublicColumnForVerify = await usersTableHasColumn(db, 'profile_public');
     const hasThemeColumnForVerify = await usersTableHasColumn(db, 'theme');
-    const verifiedUserQuery = `SELECT id, username, email, membership_tier, role, ${hasProfilePublicColumnForVerify ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumnForVerify ? 'theme' : 'NULL AS theme'} FROM users WHERE id = ?`;
+    const hasLinkTargetColumnForVerify = await usersTableHasColumn(db, 'link_target');
+    const verifiedUserQuery = `SELECT id, username, email, membership_tier, role, ${hasProfilePublicColumnForVerify ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumnForVerify ? 'theme' : 'NULL AS theme'}, ${hasLinkTargetColumnForVerify ? 'link_target' : 'NULL AS link_target'} FROM users WHERE id = ?`;
 
     const verifiedUser = await db
       .prepare(verifiedUserQuery)
@@ -1159,7 +1161,8 @@ async function handleAuth(request, env, segments) {
 
     const hasProfilePublicColumn = await usersTableHasColumn(db, 'profile_public');
     const hasThemeColumn = await usersTableHasColumn(db, 'theme');
-    const meQuery = `SELECT id, username, email, membership_tier, role, created_at, ${hasProfilePublicColumn ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumn ? 'theme' : 'NULL AS theme'} FROM users WHERE id = ?`;
+    const hasLinkTargetColumn = await usersTableHasColumn(db, 'link_target');
+    const meQuery = `SELECT id, username, email, membership_tier, role, created_at, ${hasProfilePublicColumn ? 'profile_public' : '0 AS profile_public'}, ${hasThemeColumn ? 'theme' : 'NULL AS theme'}, ${hasLinkTargetColumn ? 'link_target' : 'NULL AS link_target'} FROM users WHERE id = ?`;
 
     const user = await db
       .prepare(meQuery)
@@ -1372,6 +1375,31 @@ async function handleAuth(request, env, segments) {
     return jsonResponse({
       message: 'Theme updated',
       user: { theme },
+    });
+  }
+
+  if (request.method === 'PUT' && segments[1] === 'link-target') {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+
+    const hasLinkTargetColumn = await usersTableHasColumn(db, 'link_target');
+    if (!hasLinkTargetColumn) {
+      return jsonResponse({ error: 'Link opening preferences are not configured yet' }, 503);
+    }
+
+    const { linkTarget } = await parseBody(request);
+    if (!['new', 'same'].includes(linkTarget)) {
+      return jsonResponse({ error: 'Invalid link target' }, 400);
+    }
+
+    await db
+      .prepare('UPDATE users SET link_target = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(linkTarget, auth.user.id)
+      .run();
+
+    return jsonResponse({
+      message: 'Link opening preference updated',
+      user: { link_target: linkTarget },
     });
   }
 

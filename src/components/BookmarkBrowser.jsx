@@ -3,8 +3,9 @@ import { Star, Search, X } from 'lucide-react'
 import TagCloud from './TagCloud'
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities'
 import { getRegistrableDomain } from '../utils/domain'
+import { DEFAULT_LINK_TARGET, linkTargetProps } from '../utils/linkTarget'
 
-function DefaultCard({ bookmark }) {
+function DefaultCard({ bookmark, linkTarget }) {
   const displayTitle = decodeHtmlEntities(bookmark.title || '')
   const displayDescription = decodeHtmlEntities(bookmark.description || '')
 
@@ -21,7 +22,7 @@ function DefaultCard({ bookmark }) {
         )}
         <h3>{displayTitle}</h3>
       </div>
-      <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
+      <a href={bookmark.url} {...linkTargetProps(linkTarget)}>
         {bookmark.url}
       </a>
       {displayDescription && (
@@ -42,6 +43,7 @@ function DefaultCard({ bookmark }) {
 function BookmarkBrowser({
   bookmarks,
   loading = false,
+  linkTarget = DEFAULT_LINK_TARGET,
   tags,
   tagsRefreshKey = 0,
   onTagFavoriteToggle,
@@ -360,7 +362,9 @@ function BookmarkBrowser({
               <div className="bookmarks-grid">
                 {paginatedBookmarks.map((bookmark) => (
                   <Fragment key={bookmark.id}>
-                    {renderCard ? renderCard(bookmark, { onShowRelated: handleShowRelated }) : <DefaultCard bookmark={bookmark} />}
+                    {renderCard
+                      ? renderCard(bookmark, { onShowRelated: handleShowRelated })
+                      : <DefaultCard bookmark={bookmark} linkTarget={linkTarget} />}
                   </Fragment>
                 ))}
               </div>

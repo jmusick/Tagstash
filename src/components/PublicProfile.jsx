@@ -6,7 +6,7 @@ import AppFooter from './AppFooter'
 import BookmarkBrowser from './BookmarkBrowser'
 import './PublicProfile.css'
 
-function PublicProfile({ logoSrc, theme, onSelectTheme }) {
+function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
   const { username } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState(null)
@@ -84,6 +84,7 @@ function PublicProfile({ logoSrc, theme, onSelectTheme }) {
         <BookmarkBrowser
           bookmarks={bookmarks}
           loading={false}
+          linkTarget={linkTarget}
           tags={tags}
           showFavoritesFilter={false}
           emptyStateMessage="This user hasn't shared any bookmarks yet."
