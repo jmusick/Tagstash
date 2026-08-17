@@ -4,6 +4,7 @@ import { profileAPI } from '../api/api'
 import AppHeader from './AppHeader'
 import AppFooter from './AppFooter'
 import BookmarkBrowser from './BookmarkBrowser'
+import { useDocumentMeta } from '../utils/useDocumentMeta'
 import './PublicProfile.css'
 
 function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
@@ -18,6 +19,19 @@ function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
   const [initialSelectedTags] = useState(() => (
     [...new Set(searchParams.getAll('tag').map((tag) => tag.trim().toLowerCase()).filter(Boolean))]
   ))
+
+  const topTagNames = tags.slice(0, 5).map((tag) => tag.name)
+  useDocumentMeta({
+    enabled: !loading,
+    title: notFound || error ? 'Profile Not Found - Tagstash' : `${profile?.username}'s Bookmarks - Tagstash`,
+    description: notFound || error
+      ? "This profile doesn't exist or isn't public."
+      : topTagNames.length
+        ? `Browse ${profile?.username}'s public bookmarks on Tagstash, tagged with ${topTagNames.join(', ')}.`
+        : `Browse ${profile?.username}'s public bookmarks on Tagstash.`,
+    path: `/u/${username}`,
+    noindex: notFound || !!error,
+  })
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -92,7 +106,7 @@ function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
           onSelectedTagsChange={handleSelectedTagsChange}
         >
           <div className="public-profile-header">
-            <h2>@{profile?.username}&apos;s bookmarks</h2>
+            <h1>@{profile?.username}&apos;s bookmarks</h1>
           </div>
         </BookmarkBrowser>
       </main>

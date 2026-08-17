@@ -4,9 +4,16 @@ import { authAPI } from '../api/api';
 import { Tag, Zap, Shield, Share2, Smartphone, Globe } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import { version } from '../../package.json';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Home.css';
 
 function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
+  useDocumentMeta({
+    title: 'Tagstash - Tag-Based Bookmarking',
+    description: 'Tag-first bookmarking for people who outgrow folders fast. Save, organize, and share your bookmarks with Tagstash.',
+    path: '/',
+  });
+
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
@@ -234,6 +241,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
         <div className="hero-content">
           <h1 className="hero-title">
             <img src={logoSrc} alt="Tagstash" className="hero-logo" />
+            <span className="hero-title-text">Tagstash - Tag-Based Bookmarking</span>
           </h1>
           <p className="hero-subtitle">Tag-first bookmarking for people who outgrow folders fast</p>
           <div className="hero-meta">

@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { GitMerge, X, AlertTriangle, ArrowRight } from 'lucide-react'
 import { bookmarksAPI } from '../api/api'
 import { findPluralTagPairs } from '../utils/pluralTagPairs'
+import { useDocumentMeta } from '../utils/useDocumentMeta'
 import TagCloud from './TagCloud'
 
 function TagsPage() {
+  useDocumentMeta({ title: 'Manage Tags - Tagstash', path: '/tags', noindex: true })
+
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

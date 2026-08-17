@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { authAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Auth.css';
 
 function ResetPassword({ logoSrc }) {
+  useDocumentMeta({ title: 'Reset Password - Tagstash', path: '/reset-password', noindex: true });
+
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [status, setStatus] = useState('form'); // form | loading | success | error

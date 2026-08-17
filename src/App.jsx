@@ -7,8 +7,15 @@ import Home from './components/Home'
 import BookmarkBrowser from './components/BookmarkBrowser'
 import AppHeader from './components/AppHeader'
 import AppFooter from './components/AppFooter'
-import CookieConsent from './components/CookieConsent'
 import { authAPI, bookmarksAPI, billingAPI } from './api/api'
+
+// Lazy + catch rather than a static import: if a content blocker ever blocks this
+// module's request (see the note in ConsentBanner.jsx), a static import would take
+// the entire app down with it. Degrading to "no consent banner" is survivable —
+// analytics simply stays off, which is the safe default — a blank site is not.
+const ConsentBanner = lazy(() =>
+  import('./components/ConsentBanner').catch(() => ({ default: () => null }))
+)
 
 const Settings = lazy(() => import('./components/Settings'))
 const TagsPage = lazy(() => import('./components/TagsPage'))
@@ -1292,7 +1299,9 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
-    <CookieConsent />
+    <Suspense fallback={null}>
+      <ConsentBanner />
+    </Suspense>
     </>
   )
 }

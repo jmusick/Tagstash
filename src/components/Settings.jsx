@@ -4,6 +4,7 @@ import { authAPI, billingAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2, CreditCard, Zap, CheckCircle } from 'lucide-react';
 import Import from './Import';
 import { DEFAULT_LINK_TARGET, LINK_TARGET_ORDER, LINK_TARGET_LABELS } from '../utils/linkTarget';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Settings.css';
 
 function Settings({
@@ -13,6 +14,8 @@ function Settings({
   linkTarget = DEFAULT_LINK_TARGET,
   onSelectLinkTarget,
 }) {
+  useDocumentMeta({ title: 'Settings - Tagstash', path: '/settings', noindex: true, enabled: pageMode });
+
   const { user, updateUser } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const currentMembershipTier = user?.membership_tier || user?.membershipTier || 'free';

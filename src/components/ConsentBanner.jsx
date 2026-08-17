@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ANALYTICS_ID, GA_MEASUREMENT_ID, ANALYTICS_CONSENT_STORAGE_KEY } from '../utils/analytics'
-import './CookieConsent.css'
+import './ConsentBanner.css'
 
+// Named ConsentBanner, not CookieConsent: content blockers (uBlock Origin et al.)
+// match filter lists against request URLs, and paths containing "cookieconsent"
+// hit EasyPrivacy-style rules for third-party consent-management scripts. When
+// this module is served as its own file under that name, the request is blocked
+// and — since App.jsx imports it — the whole app fails to boot. Keep the name
+// neutral, and keep the import in App.jsx failure-tolerant.
+//
 // Opt-in, and strictly so: gtag.js is not fetched at all until the visitor
 // accepts. A banner that loads the tag first and asks second still discloses
 // the visitor's IP to Google on page one, which is the thing consent is
@@ -47,7 +54,7 @@ function clearAnalyticsCookies() {
   })
 }
 
-function CookieConsent() {
+function ConsentBanner() {
   const [visible, setVisible] = useState(false)
   const wasGrantedRef = useRef(false)
   const acceptBtnRef = useRef(null)
@@ -136,4 +143,4 @@ function CookieConsent() {
   )
 }
 
-export default CookieConsent
+export default ConsentBanner

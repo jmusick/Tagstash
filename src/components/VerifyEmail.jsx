@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { authAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Auth.css';
 
 function VerifyEmail({ logoSrc }) {
+  useDocumentMeta({ title: 'Verify Email - Tagstash', path: '/verify-email', noindex: true });
+
   const [status, setStatus] = useState('verifying'); // verifying | success | error
   const [message, setMessage] = useState('');
   const { refreshCurrentUser } = useAuth();

@@ -1,0 +1,12 @@
+{
+  "name": "Tagstash - Tag-Based Bookmarking",
+  "short_name": "Tagstash",
+  "description": "Tag-first bookmarking for people who outgrow folders fast.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6d45ff",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

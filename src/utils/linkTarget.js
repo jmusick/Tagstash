@@ -23,6 +23,11 @@ export const getInitialLinkTarget = () => {
 }
 
 // Spread onto an <a> that points at a bookmark's URL so it honors the preference.
+// `rel="ugc nofollow"` is always included since these links point at arbitrary
+// user-submitted URLs (relevant on /u/:username, which search engines crawl) —
+// it tells search engines not to treat them as an editorial endorsement/link scheme.
 export const linkTargetProps = (linkTarget) => (
-  linkTarget === 'same' ? {} : { target: '_blank', rel: 'noopener noreferrer' }
+  linkTarget === 'same'
+    ? { rel: 'ugc nofollow' }
+    : { target: '_blank', rel: 'ugc nofollow noopener noreferrer' }
 )
