@@ -448,6 +448,8 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
           <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
           &nbsp;&middot;&nbsp;
           <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>
+          &nbsp;&middot;&nbsp;
+          <button className="home-footer-privacy-link" data-cookie-preferences>Cookie Choices</button>
           &nbsp;&middot;&nbsp;<span className="version">v{version}</span>
         </p>
       </footer>

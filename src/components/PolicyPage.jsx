@@ -4,12 +4,19 @@ function PolicyPage({ logoSrc, onBack }) {
   return (
     <div className="privacy-page">
       <header className="privacy-header">
-        {logoSrc && <img src={logoSrc} alt="Tagstash" className="privacy-logo" />}
+        {logoSrc && (
+          <button type="button" className="privacy-logo-btn" onClick={onBack} title="Back to Tagstash">
+            <img src={logoSrc} alt="Tagstash" className="privacy-logo" />
+          </button>
+        )}
         <h1>Privacy Policy</h1>
+        <button type="button" className="privacy-header-back" onClick={onBack}>
+          &larr; Back to Tagstash
+        </button>
       </header>
 
       <main className="privacy-content">
-        <p className="privacy-effective">Effective date: August 3, 2026</p>
+        <p className="privacy-effective">Effective date: August 17, 2026</p>
 
         <section>
           <h2>Overview</h2>
@@ -80,6 +87,19 @@ function PolicyPage({ logoSrc, onBack }) {
               come from a real person rather than a bot.
             </li>
             <li>
+              <strong>Google Analytics</strong> helps us understand how visitors use Tagstash
+              (such as pages viewed and general usage trends) so we can improve the service.
+              Google Analytics sets cookies and collects data like your IP address, browser
+              type, and pages visited &mdash; but only if you accept the cookie banner shown
+              on your first visit. Nothing is loaded or sent to Google until you accept, and
+              the app works identically either way. You can change your choice at any time
+              using the "Cookie Choices" link in the footer. See Google's{' '}
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">
+                Privacy Policy
+              </a>{' '}
+              for details on how Google handles this data.
+            </li>
+            <li>
               When you save or edit a bookmark, our server fetches the destination URL to
               suggest a title and description, and requests a favicon icon for that domain
               from Google's favicon service. These requests go out to the site you're
@@ -120,12 +140,18 @@ function PolicyPage({ logoSrc, onBack }) {
         <section>
           <h2>Cookies &amp; Local Storage</h2>
           <p>
-            We do not set any cookies. The web app uses browser local storage to remember
-            your theme preference and to keep you logged in between sessions. If you're
-            logged in, your selected theme is also saved to your account so it follows you
-            to other browsers and devices. If you use the Tagstash browser extension, it
-            similarly stores your session and basic profile info locally in your browser
-            (not on any other site) so you stay logged in there.
+            We do not set any cookies ourselves. On your first visit, a banner asks whether
+            you'd like to allow Google Analytics; if you accept, it sets its own cookies to
+            distinguish visitors and measure usage (see the Third-Party Services section
+            above). If you decline or don't respond, no analytics cookies are set. Your
+            choice is remembered in local storage, not a cookie, and you can revisit it
+            anytime using the "Cookie Choices" link in the footer. The web app also uses
+            browser local storage to remember your theme preference and to keep you logged
+            in between sessions. If you're logged in, your selected theme is also saved to
+            your account so it follows you to other browsers and devices. If you use the
+            Tagstash browser extension, it similarly stores your session and basic profile
+            info locally in your browser (not on any other site) so you stay logged in
+            there.
           </p>
         </section>
 

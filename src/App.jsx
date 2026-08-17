@@ -7,6 +7,7 @@ import Home from './components/Home'
 import BookmarkBrowser from './components/BookmarkBrowser'
 import AppHeader from './components/AppHeader'
 import AppFooter from './components/AppFooter'
+import CookieConsent from './components/CookieConsent'
 import { authAPI, bookmarksAPI, billingAPI } from './api/api'
 
 const Settings = lazy(() => import('./components/Settings'))
@@ -913,6 +914,7 @@ function App() {
   )
 
   return (
+    <>
     <Suspense fallback={<div className="loading-container"><p>Loading...</p></div>}>
       <Routes>
         <Route path="/verify-email" element={<VerifyEmail logoSrc={logoSrc} />} />
@@ -1290,6 +1292,8 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
+    <CookieConsent />
+    </>
   )
 }
 
