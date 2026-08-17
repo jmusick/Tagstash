@@ -43,6 +43,7 @@ Current status at a glance:
 - Tag Management page (`/tags`) for merging two tags into one, with a confirmation step since it can't be undone
 - Self-service username, email, and password changes, plus a forgot-password email flow
 - Personal API keys (Settings) for programmatic access to your account
+- Dynamic XML sitemap (`/sitemap.xml`) listing static pages and opted-in public profiles, for search engine discovery
 
 ## Hosted Version
 
@@ -94,8 +95,10 @@ Required or commonly used values:
 
 - `JWT_SECRET`
 - `SUPER_ADMIN_EMAIL`
-- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for email verification (Cloudflare Email Sending)
 - `API_KEY_ENCRYPTION_SECRET` optional, defaults to `JWT_SECRET` behavior in app usage
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for email sending (Cloudflare Email Sending), needed for registration/verification/password-reset emails and the support form
+- `EMAIL_FROM`, `EMAIL_FROM_VERIFICATION`, `EMAIL_FROM_PASSWORD_RESET`, `EMAIL_FROM_CONTACT`, `EMAIL_REPLY_TO`, `SUPPORT_EMAIL` — per-purpose sender/reply addresses for Cloudflare Email Sending; each falls back to `EMAIL_FROM`, then a `tagsta.sh` default
+- `TURNSTILE_SECRET_KEY` for validating the support form's Cloudflare Turnstile CAPTCHA
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_MONTHLY_PRICE_ID`
@@ -105,6 +108,7 @@ Required or commonly used values:
 For the frontend, optionally create `.env` and set:
 
 - `VITE_API_URL` if you do not want to use the default local proxy
+- `VITE_TURNSTILE_SITE_KEY` for the support form's Turnstile widget
 
 ### Database setup
 
@@ -151,6 +155,10 @@ Production setup includes:
 - `APP_URL`
 
 ## Key API Routes
+
+### Health
+
+- `GET /api/health` — liveness check, works even without D1 configured
 
 ### Auth
 
@@ -252,12 +260,14 @@ tagstash/
 ├── d1/
 │   └── migrations/
 ├── functions/
-│   └── api/
+│   ├── api/
+│   └── sitemap.xml.js
 ├── public/
 ├── src/
 │   ├── api/
 │   ├── components/
 │   ├── context/
+│   ├── utils/
 │   ├── App.jsx
 │   └── main.jsx
 ├── .dev.vars

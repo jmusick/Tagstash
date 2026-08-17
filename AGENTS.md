@@ -19,6 +19,10 @@ if (auth.error) return auth.error;
 
 Routes that must be reachable by anonymous visitors (like the public profile endpoint) need their own handler that never calls `requireAuth` — don't add them as a branch inside `handleBookmarks`/`handleAuth`, since those call `requireAuth` unconditionally at the top.
 
+`GET /api/health` is a sixth top-level route, but it's handled inline inside `onRequest` itself (not a `handleX` function), and deliberately checked *before* the `env.DB` binding check — so it works as a liveness probe even without D1 configured.
+
+There's also a Pages Function outside the `/api` dispatcher entirely: `functions/sitemap.xml.js` serves `GET /sitemap.xml`, querying `users` directly for `profile_public = 1` rows to list public profiles alongside a few hardcoded static pages.
+
 `GET /api/profiles/:username` (in `handleProfiles`) is a **stable, documented public API** meant for third-party consumption — Settings surfaces ready-to-copy URLs (including per-tag `?tag=` filters) for users to embed on other sites, and it's documented in `README.md`. Treat changes to its response shape as a compatibility concern, not a free internal refactor.
 
 ## Scraped page metadata: decode entities, don't trust the regex
@@ -58,7 +62,7 @@ Cloudflare Pages deploys the Worker bundle **independently** of `wrangler d1 mig
 const hasFoo = await bookmarksTableHasColumn(db, 'foo'); // or usersTableHasColumn
 ```
 
-and fail closed (404/503) rather than letting an unguarded reference 500 every request that touches that table. `is_favorite`, `is_private`, `profile_public`, and `theme` all follow this pattern — copy it for new boolean/nullable columns on `users` or `bookmarks`. (`0007_password_reset.sql`'s `password_reset_tokens` table is the one deliberate exception — narrow blast radius, only two rarely-hit routes.)
+and fail closed (404/503) rather than letting an unguarded reference 500 every request that touches that table. `is_favorite`, `is_private`, `profile_public`, `theme`, `link_target`, and `last_login_at` all follow this pattern — copy it for new boolean/nullable columns on `users` or `bookmarks`. (`0007_password_reset.sql`'s `password_reset_tokens` table is the one deliberate exception — narrow blast radius, only two rarely-hit routes.) Note `is_favorite` on `bookmarks` is guarded via a pre-fetched `PRAGMA table_info` set (`bookmarksColumnNames.has('is_favorite')`) rather than a direct `bookmarksTableHasColumn` call at that site — same pattern, different idiom.
 
 Per-bookmark boolean toggles (favorite, private) share one backend helper, `toggleBookmarkFlag(db, userId, bookmarkId, columnName, messages)`, and one frontend helper, `handleBookmarkToggle(apiCall, id, fallbackErrorMessage)` in `App.jsx` — extend those for the next toggle instead of copy-pasting a route/handler pair. `getTagsByBookmarkId(db, userId, { publicOnly, hasIsPrivateColumn })` is the same idea for the tag-join query.
 
@@ -71,6 +75,14 @@ Migrations are sequential numbered files in `d1/migrations/`, applied via `npm r
 - Never trust a client-supplied tag id as "belongs to this user" — verify with `SELECT COUNT(*) FROM bookmark_tags bt JOIN bookmarks b ON bt.bookmark_id = b.id WHERE bt.tag_id = ? AND b.user_id = ?` before acting on it. (`POST /bookmarks/tags/:id/favorite` skips this check — a known gap, not a pattern to copy.)
 - Only remove the user's *own* `bookmark_tags` rows, never `DELETE FROM tags WHERE id = ?` unconditionally. Delete the `tags` row only when orphaned: `DELETE FROM tags WHERE id = ? AND NOT EXISTS (SELECT 1 FROM bookmark_tags WHERE tag_id = ?)`.
 - `favorite_tags` is already per-user (`user_id, tag_id` PK), so clean up the requesting user's row there regardless of whether the global `tags` row gets deleted.
+
+## Personal API keys are not (yet) an auth path
+
+Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_initial.sql`; routes at `GET/POST /api/auth/api-keys`, `DELETE .../api-keys/:id` for revoke, `DELETE .../api-keys/:id/permanent`). Keys are stored both hashed (`hashApiKey`, for lookup) and encrypted (`encryptApiKey`/`decryptApiKey`, keyed off `API_KEY_ENCRYPTION_SECRET`, falling back to `JWT_SECRET`) so the plaintext can be redisplayed once in Settings. Despite existing, these keys are **not currently wired into `requireAuth`** — that helper is JWT-bearer-token only (`getBearerToken`). Don't assume a route documented as requiring auth accepts an API key; it doesn't yet.
+
+## Super-admin role is config-driven, not just a DB flag
+
+`requireSuperAdmin(db, authUser, env)` gates the admin routes (`GET/PATCH/DELETE /api/auth/admin/users*`). On every check it cross-references `SUPER_ADMIN_EMAIL` (and any other configured role mapping) via `isSuperAdminEmail`/`getRoleForEmail`, and self-heals `users.role` to match via `ensureUserRoleMatchesConfig` — so a configured super-admin's role can't be permanently changed through the admin API itself; it'll just resync on the next check. Changing who's a super-admin means changing env config, not just editing the `users` row.
 
 ## Frontend: real client-side routing (react-router-dom)
 
