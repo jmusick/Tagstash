@@ -447,25 +447,60 @@ const requireAuth = async (request, env) => {
     return { error: jsonResponse({ error: 'Access token required' }, 401) };
   }
 
+  let payload;
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret(env));
-    return { user: payload };
+    ({ payload } = await jwtVerify(token, getJwtSecret(env)));
   } catch {
     return { error: jsonResponse({ error: 'Invalid or expired token' }, 403) };
   }
+
+  // The signature only proves we issued the token, not that it's still valid. Re-read the
+  // user so deleted accounts and revoked tokens (token_version bumped on password change or
+  // reset) stop working immediately rather than at expiry. SELECT * rather than naming
+  // token_version keeps this working before migration 0011 is applied; tokens issued before
+  // it carry no `tv` claim and match version 0.
+  const dbUser = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(payload.id).first();
+  if (!dbUser || Number(dbUser.token_version || 0) !== Number(payload.tv || 0)) {
+    return { error: jsonResponse({ error: 'Invalid or expired token' }, 403) };
+  }
+
+  return {
+    user: {
+      id: dbUser.id,
+      username: dbUser.username,
+      role: dbUser.role,
+      membershipTier: dbUser.membership_tier,
+    },
+  };
 };
 
-const signUserToken = async (user, env) =>
-  new SignJWT({
+const signUserToken = async (user, env) => {
+  // Read token_version fresh rather than trusting the caller's row, so a token signed right
+  // after bumpTokenVersion carries the new version. SELECT * for the same pre-migration
+  // reason as requireAuth.
+  const versionRow = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user.id).first();
+
+  return new SignJWT({
     id: user.id,
     username: user.username,
     role: user.role,
     membershipTier: user.membership_tier,
+    tv: Number(versionRow?.token_version || 0),
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('60d')
     .sign(getJwtSecret(env));
+};
+
+// Invalidates every outstanding token for the user. Callers that keep the current session
+// alive must sign a fresh token afterwards.
+const bumpTokenVersion = async (db, userId) => {
+  if (!(await usersTableHasColumn(db, 'token_version'))) {
+    return;
+  }
+  await db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').bind(userId).run();
+};
 
 const ensureUserRoleMatchesConfig = async (db, user, env) => {
   const expectedRole = getRoleForEmail(user.email, env);
@@ -1327,7 +1362,11 @@ async function handleAuth(request, env, segments) {
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(passwordHash, auth.user.id).run();
 
-    return jsonResponse({ message: 'Password updated successfully' });
+    // Sign out every other session (including a stolen token), but keep this one alive.
+    await bumpTokenVersion(db, auth.user.id);
+    const token = await signUserToken(auth.user, env);
+
+    return jsonResponse({ message: 'Password updated successfully', token });
   }
 
   if (request.method === 'PUT' && segments[1] === 'profile-public') {
@@ -1776,6 +1815,8 @@ async function handleAuth(request, env, segments) {
       .prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(passwordHash, record.user_id)
       .run();
+
+    await bumpTokenVersion(db, record.user_id);
 
     await db
       .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')

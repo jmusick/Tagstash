@@ -88,6 +88,10 @@ Migrations are sequential numbered files in `d1/migrations/`, applied via `npm r
 - Only remove the user's *own* `bookmark_tags` rows, never `DELETE FROM tags WHERE id = ?` unconditionally. Delete the `tags` row only when orphaned: `DELETE FROM tags WHERE id = ? AND NOT EXISTS (SELECT 1 FROM bookmark_tags WHERE tag_id = ?)`.
 - `favorite_tags` is already per-user (`user_id, tag_id` PK), so clean up the requesting user's row there regardless of whether the global `tags` row gets deleted.
 
+## Token revocation: `requireAuth` re-reads the user
+
+`requireAuth` verifies the JWT and then loads the `users` row on every request, rejecting the token if the account is gone or its `tv` claim doesn't match `users.token_version`. `auth.user` is built from that row, not from the token payload. Call `bumpTokenVersion(db, userId)` to sign a user out everywhere — password change and password reset already do. If the current session should survive (as with password change), sign and return a fresh token afterwards; `signUserToken` reads the new version itself. Tokens issued before `0011_token_version.sql` have no `tv` claim and count as version 0.
+
 ## Personal API keys are not (yet) an auth path
 
 Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_initial.sql`; routes at `GET/POST /api/auth/api-keys`, `DELETE .../api-keys/:id` for revoke, `DELETE .../api-keys/:id/permanent`). Keys are stored both hashed (`hashApiKey`, for lookup) and encrypted (`encryptApiKey`/`decryptApiKey`, keyed off `API_KEY_ENCRYPTION_SECRET`, falling back to `JWT_SECRET`) so the plaintext can be redisplayed once in Settings. Despite existing, these keys are **not currently wired into `requireAuth`** (the README says so too — keep it honest) — that helper is JWT-bearer-token only (`getBearerToken`). Don't assume a route documented as requiring auth accepts an API key; it doesn't yet.
