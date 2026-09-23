@@ -24,6 +24,9 @@ coverage
 # Cloudflare / Wrangler
 .wrangler/
 
+# Claude Code personal settings
+.claude/settings.local.json
+
 # Temporary local artifacts
 .tmp/
 
