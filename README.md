@@ -42,8 +42,9 @@ Current status at a glance:
 - Random button for jumping straight to a random bookmark in edit mode
 - Tag Management page (`/tags`) for merging two tags into one, with a confirmation step since it can't be undone
 - Self-service username, email, and password changes, plus a forgot-password email flow
-- Personal API keys (Settings) for programmatic access to your account
-- Dynamic XML sitemap (`/sitemap.xml`) listing static pages and opted-in public profiles, for search engine discovery
+- Personal API keys (Settings) can be generated and revoked; they are not yet accepted as an authentication method by the API
+- Security response headers (CSP, HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) and immutable caching for hashed assets, served via `public/_headers`
+- Dynamic XML sitemap (`/sitemap.xml`) listing static pages and opted-in public profiles, plus `robots.txt` and `llms.txt`, for search engine and AI crawler discovery
 
 ## Hosted Version
 
@@ -145,6 +146,7 @@ Production setup includes:
 - D1 migrations applied locally and remotely
 - Cloudflare Pages secrets for Stripe and email
 - Stripe webhook endpoint wired to `/api/billing/webhook`
+- Security headers come from `public/_headers`; its Content Security Policy allowlists Google Analytics/Tag Manager, Google favicons, Google Fonts, and Cloudflare Turnstile, so a new third-party origin must be added there
 
 ### Stripe-related secrets
 
@@ -219,7 +221,7 @@ Production setup includes:
 
 - `GET /api/profiles/:username` — unauthenticated; returns a user's public, non-private bookmarks and tags if they've opted in via `PUT /api/auth/profile-public`
 
-This is a stable, documented public API meant for third-party consumption (not just internal page-support data) — Settings surfaces ready-to-copy URLs for it. Responses are JSON with CORS enabled for all origins, so it can be fetched directly from another site's frontend.
+This is a stable, documented public API meant for third-party consumption (not just internal page-support data) — Settings surfaces ready-to-copy URLs for it. Responses are JSON with CORS enabled for all origins, so it can be fetched directly from another site's frontend or from a server-side build/SSR step. The site's Content Security Policy governs only Tagstash's own pages, not consumers of this API.
 
 Optional repeatable `?tag=` query param filters to bookmarks that have *all* of the given tags (AND):
 
@@ -261,8 +263,10 @@ tagstash/
 │   └── migrations/
 ├── functions/
 │   ├── api/
+│   ├── u/                 # per-profile meta injection for /u/:username
+│   ├── index.js           # server-rendered homepage content + structured data
 │   └── sitemap.xml.js
-├── public/
+├── public/                # static assets, robots.txt, llms.txt, _headers
 ├── src/
 │   ├── api/
 │   ├── components/

@@ -23,7 +23,7 @@ function PolicyPage({ logoSrc, onBack }) {
       </header>
 
       <main className="privacy-content">
-        <p className="privacy-effective">Effective date: August 17, 2026</p>
+        <p className="privacy-effective">Effective date: September 23, 2026</p>
 
         <section>
           <h2>Overview</h2>
@@ -110,7 +110,9 @@ function PolicyPage({ logoSrc, onBack }) {
               When you save or edit a bookmark, our server fetches the destination URL to
               suggest a title and description, and requests a favicon icon for that domain
               from Google's favicon service. These requests go out to the site you're
-              bookmarking (and to Google for the icon), not to us.
+              bookmarking (and to Google for the icon), not to us. When bookmarks are
+              displayed, your browser loads each icon directly from Google, which means
+              Google receives your IP address and the domain of the icon requested.
             </li>
           </ul>
         </section>
@@ -153,9 +155,9 @@ function PolicyPage({ logoSrc, onBack }) {
             above). If you decline or don't respond, no analytics cookies are set. Your
             choice is remembered in local storage, not a cookie, and you can revisit it
             anytime using the "Cookie Choices" link in the footer. The web app also uses
-            browser local storage to remember your theme preference and to keep you logged
-            in between sessions. If you're logged in, your selected theme is also saved to
-            your account so it follows you to other browsers and devices. If you use the
+            browser local storage to remember your theme and link-opening preferences and to
+            keep you logged in between sessions. If you're logged in, those preferences are
+            also saved to your account so they follow you to other browsers and devices. If you use the
             Tagstash browser extension, it similarly stores your session and basic profile
             info locally in your browser (not on any other site) so you stay logged in
             there.
@@ -165,7 +167,9 @@ function PolicyPage({ logoSrc, onBack }) {
         <section>
           <h2>Security</h2>
           <p>
-            Passwords are hashed before storage. All data is transmitted over HTTPS. We take
+            Passwords are hashed before storage. All data is transmitted over HTTPS, and the
+            site sends security headers (including a Content Security Policy) that restrict
+            which third-party services your browser may contact while using it. We take
             reasonable measures to protect your information but cannot guarantee absolute
             security.
           </p>

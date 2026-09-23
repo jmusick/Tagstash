@@ -25,6 +25,18 @@ There's also a Pages Function outside the `/api` dispatcher entirely: `functions
 
 `GET /api/profiles/:username` (in `handleProfiles`) is a **stable, documented public API** meant for third-party consumption — Settings surfaces ready-to-copy URLs (including per-tag `?tag=` filters) for users to embed on other sites, and it's documented in `README.md`. Treat changes to its response shape as a compatibility concern, not a free internal refactor.
 
+## Security headers and CSP (`public/_headers`)
+
+`public/_headers` sets the CSP, HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` on every static asset, plus immutable caching on `/assets/*`. Pages applies `_headers` to static assets only, but `functions/index.js` and `functions/u/[username].js` call `next()` and re-wrap the asset response, so the SSR'd `/` and `/u/*` inherit the headers too. `/api/*` responses are built by the Worker and get **none** of them — their CORS headers come from `corsHeaders` in `functions/api/[[path]].js`.
+
+The CSP is an enforced allowlist built from what the app actually loads: `'self'`, Google Tag Manager/Analytics (loaded only after cookie consent), Google favicons (`www.google.com` redirecting to `*.gstatic.com`), Google Fonts, and Cloudflare Turnstile (script + iframe). There is **no `'unsafe-inline'` for scripts**, only for styles. If you add a third-party script, image host, iframe or `fetch` target, add its origin to the matching directive, and update the Third-Party Services section of `PolicyPage.jsx` if it touches user data. A blocked resource shows up as a CSP error in the browser console, not in the build.
+
+The public profile API is consumed cross-origin by other sites (orboro.net and Hidden Lodge fetch it server-side in Astro SSR/build code, so they aren't subject to CORS or CSP at all). Keep `Access-Control-Allow-Origin: *` on `/api/profiles/*` even if the rest of the API gets a CORS allowlist — that endpoint is public by design.
+
+## Server-rendered pages outside the API
+
+Two Pages Functions rewrite the SPA shell's HTML before it reaches the browser: `functions/index.js` (homepage marketing copy + `SoftwareApplication`/`FAQPage` JSON-LD) and `functions/u/[username].js` (per-profile title/description/OG tags). React hydrates over the result, so the SSR'd DOM and `Home.jsx`/`useDocumentMeta.js` must agree — change copy or titles in both places. Both bail out (returning the untouched response) for non-200 or non-HTML responses. `robots.txt`, `llms.txt` and the sitemap are the other crawler-facing surfaces; keep `llms.txt` current when pricing or features change.
+
 ## Scraped page metadata: decode entities, don't trust the regex
 
 `fetchSiteMetadata` / `extractPageTitle` / `extractMetaDescription` scrape titles and descriptions out of raw HTML with regexes (Workers has no `DOMParser`). Two things bite here:
@@ -78,7 +90,7 @@ Migrations are sequential numbered files in `d1/migrations/`, applied via `npm r
 
 ## Personal API keys are not (yet) an auth path
 
-Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_initial.sql`; routes at `GET/POST /api/auth/api-keys`, `DELETE .../api-keys/:id` for revoke, `DELETE .../api-keys/:id/permanent`). Keys are stored both hashed (`hashApiKey`, for lookup) and encrypted (`encryptApiKey`/`decryptApiKey`, keyed off `API_KEY_ENCRYPTION_SECRET`, falling back to `JWT_SECRET`) so the plaintext can be redisplayed once in Settings. Despite existing, these keys are **not currently wired into `requireAuth`** — that helper is JWT-bearer-token only (`getBearerToken`). Don't assume a route documented as requiring auth accepts an API key; it doesn't yet.
+Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_initial.sql`; routes at `GET/POST /api/auth/api-keys`, `DELETE .../api-keys/:id` for revoke, `DELETE .../api-keys/:id/permanent`). Keys are stored both hashed (`hashApiKey`, for lookup) and encrypted (`encryptApiKey`/`decryptApiKey`, keyed off `API_KEY_ENCRYPTION_SECRET`, falling back to `JWT_SECRET`) so the plaintext can be redisplayed once in Settings. Despite existing, these keys are **not currently wired into `requireAuth`** (the README says so too — keep it honest) — that helper is JWT-bearer-token only (`getBearerToken`). Don't assume a route documented as requiring auth accepts an API key; it doesn't yet.
 
 ## Super-admin role is config-driven, not just a DB flag
 
