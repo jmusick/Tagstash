@@ -40,6 +40,8 @@ export const AuthProvider = ({ children }) => {
 
   const describeAuthError = (err, fallback) => {
     if (err.response?.data?.error) return err.response.data.error;
+    // A Cloudflare rate-limiting block answers 429 with an HTML page, not our JSON error.
+    if (err.response?.status === 429) return 'Too many attempts. Please wait a moment and try again.';
     if (err.request) return 'Unable to reach the server. Please check your connection and try again.';
     return fallback;
   };

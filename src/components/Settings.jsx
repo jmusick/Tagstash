@@ -30,6 +30,8 @@ function Settings({
   const [error, setError] = useState('');
   const [apiKeys, setApiKeys] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
+  const [authEvents, setAuthEvents] = useState([]);
+  const [loadingAuthEvents, setLoadingAuthEvents] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [generatedApiKey, setGeneratedApiKey] = useState('');
   const [showRevokedKeys, setShowRevokedKeys] = useState(false);
@@ -175,6 +177,22 @@ function Settings({
       setError(err.response?.data?.error || 'Failed to fetch users');
     } finally {
       setLoadingAdminUsers(false);
+    }
+  };
+
+  const fetchAuthEvents = async () => {
+    if (!isSuperAdmin) {
+      return;
+    }
+
+    try {
+      setLoadingAuthEvents(true);
+      const response = await authAPI.adminListAuthEvents();
+      setAuthEvents(response.data.events || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch security events');
+    } finally {
+      setLoadingAuthEvents(false);
     }
   };
 
@@ -607,6 +625,7 @@ function Settings({
                 setError('');
                 setSuccess('');
                 fetchAdminUsers();
+                fetchAuthEvents();
               }}
             >
               Admin
@@ -1125,6 +1144,15 @@ function Settings({
                             })
                           : 'Never'}
                       </p>
+                      {member.locked_until && member.locked_until > Date.now() && (
+                        <p className="admin-user-locked">
+                          Locked after failed logins until{' '}
+                          {new Date(member.locked_until).toLocaleTimeString(undefined, {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
                       {member.stripe_customer_id && (
                         <p className="admin-user-stripe-id">
                           Stripe: <code>{member.stripe_customer_id}</code>
@@ -1192,6 +1220,39 @@ function Settings({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            <h3 className="admin-events-heading">Recent security events</h3>
+            <p className="admin-users-description">
+              Failed logins, lockouts, rate-limited requests and password-reset requests from the last 30 days.
+            </p>
+            {loadingAuthEvents ? (
+              <p className="admin-users-empty">Loading events...</p>
+            ) : authEvents.length === 0 ? (
+              <p className="admin-users-empty">No security events recorded.</p>
+            ) : (
+              <div className="admin-events-table-wrap">
+                <table className="admin-events-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">When (UTC)</th>
+                      <th scope="col">Event</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {authEvents.map((event) => (
+                      <tr key={event.id}>
+                        <td>{event.created_at}</td>
+                        <td>{event.event_type.replace(/_/g, ' ')}</td>
+                        <td>{event.email || '—'}</td>
+                        <td>{event.ip || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

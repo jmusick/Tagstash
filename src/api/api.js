@@ -82,6 +82,9 @@ export const authAPI = {
 
   adminDeleteUser: (id) =>
     api.delete(`/auth/admin/users/${id}`),
+
+  adminListAuthEvents: () =>
+    api.get('/auth/admin/auth-events'),
 };
 
 // Bookmarks API

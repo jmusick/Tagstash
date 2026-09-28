@@ -502,6 +502,95 @@ const bumpTokenVersion = async (db, userId) => {
   await db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').bind(userId).run();
 };
 
+// Brute-force protection. The per-account lockout is the control that carries weight; the
+// Cloudflare rate-limiting rule on /api/auth/login only slows a script down (the free plan
+// caps its block at 10 seconds).
+const LOGIN_MAX_FAILED_ATTEMPTS = 8;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
+
+// Per-IP / per-email caps, counted from auth_events: [event type, max events, window minutes].
+const AUTH_RATE_LIMITS = {
+  loginFailuresPerIp: ['login_failed', 20, 15],
+  resetRequestsPerIp: ['password_reset_requested', 10, 60],
+  resetRequestsPerEmail: ['password_reset_requested', 5, 60],
+  resetRequestsPerEmailBurst: ['password_reset_requested', 1, 1],
+  registrationsPerIp: ['register_attempt', 10, 60],
+  verificationResendsPerIp: ['verification_resend_requested', 10, 60],
+};
+
+const AUTH_EVENT_RETENTION_DAYS = 30;
+
+const getClientIp = (request) => request.headers.get('CF-Connecting-IP') || null;
+
+// Appends to auth_events (and the Worker log). Never throws: a logging failure, including
+// auth_events not existing yet before migration 0012, must not break the auth flow itself.
+const recordAuthEvent = async (db, request, eventType, { email = null, userId = null } = {}) => {
+  const ip = getClientIp(request);
+  console.warn(`[auth] ${eventType}`, JSON.stringify({ email, userId, ip }));
+  try {
+    await db.batch([
+      db
+        .prepare('INSERT INTO auth_events (event_type, email, user_id, ip) VALUES (?, ?, ?, ?)')
+        .bind(eventType, email, userId, ip),
+      db.prepare(`DELETE FROM auth_events WHERE created_at < datetime('now', '-${AUTH_EVENT_RETENTION_DAYS} days')`),
+    ]);
+  } catch (err) {
+    console.error('[auth] failed to record auth event:', err?.message ?? err);
+  }
+};
+
+// True when the caller has hit the given AUTH_RATE_LIMITS entry. `by` is 'ip' or 'email'.
+// Fails open if auth_events doesn't exist yet (pre-migration) or the key is unknown (no
+// CF-Connecting-IP in local dev) — the account lockout still applies to login regardless.
+const isAuthRateLimited = async (db, [eventType, max, windowMinutes], by, value) => {
+  if (!value) return false;
+  const column = by === 'email' ? 'email' : 'ip';
+  try {
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM auth_events
+         WHERE event_type = ? AND ${column} = ? AND created_at > datetime('now', ?)`
+      )
+      .bind(eventType, value, `-${windowMinutes} minutes`)
+      .first();
+    return Number(row?.n || 0) >= max;
+  } catch {
+    return false;
+  }
+};
+
+const rateLimitedResponse = (message) => jsonResponse({ error: message }, 429);
+
+// `user` is a SELECT * row, so the lockout columns are simply absent before migration 0012.
+const getLockedUntil = (user) => {
+  const lockedUntil = Number(user.locked_until || 0);
+  return lockedUntil > Date.now() ? lockedUntil : null;
+};
+
+const recordFailedLogin = async (db, user) => {
+  if (!('failed_attempts' in user)) return false;
+  // The counter restarts from zero when a lock is applied, so an expired lock doesn't
+  // re-lock on the very next miss.
+  const attempts = Number(user.failed_attempts || 0) + 1;
+  const locked = attempts >= LOGIN_MAX_FAILED_ATTEMPTS;
+  await db
+    .prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?')
+    .bind(locked ? 0 : attempts, locked ? Date.now() + LOGIN_LOCKOUT_MS : null, user.id)
+    .run();
+  return locked;
+};
+
+// Takes a SELECT * row; a no-op when there's nothing to clear or the columns don't exist.
+const clearLoginLockout = async (db, user) => {
+  if (!user?.failed_attempts && !user?.locked_until) return;
+  await db.prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?').bind(user.id).run();
+};
+
+const lockedOutMessage = (lockedUntil) => {
+  const minutes = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
+  return `Too many failed login attempts. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}, or reset your password.`;
+};
+
 const ensureUserRoleMatchesConfig = async (db, user, env) => {
   const expectedRole = getRoleForEmail(user.email, env);
   if (user.role !== expectedRole) {
@@ -978,6 +1067,13 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Password must be at least 6 characters' }, 400);
     }
 
+    // Every registration sends an email to an arbitrary address, so cap attempts per IP.
+    if (await isAuthRateLimited(db, AUTH_RATE_LIMITS.registrationsPerIp, 'ip', getClientIp(request))) {
+      await recordAuthEvent(db, request, 'register_rate_limited', { email: normalizedEmail });
+      return rateLimitedResponse('Too many sign-up attempts from your network. Please try again later.');
+    }
+    await recordAuthEvent(db, request, 'register_attempt', { email: normalizedEmail });
+
     const existing = await db
       .prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)')
       .bind(normalizedEmail, trimmedUsername)
@@ -1032,13 +1128,26 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Email and password are required' }, 400);
     }
 
+    if (await isAuthRateLimited(db, AUTH_RATE_LIMITS.loginFailuresPerIp, 'ip', getClientIp(request))) {
+      await recordAuthEvent(db, request, 'login_rate_limited', { email: normalizedEmail });
+      return rateLimitedResponse('Too many failed login attempts from your network. Please try again later.');
+    }
+
     const user = await db
       .prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)')
       .bind(normalizedEmail)
       .first();
 
     if (!user) {
+      await recordAuthEvent(db, request, 'login_failed', { email: normalizedEmail });
       return jsonResponse({ error: 'Invalid email or password' }, 401);
+    }
+
+    // Checked before bcrypt so a locked account costs no hashing work.
+    const lockedUntil = getLockedUntil(user);
+    if (lockedUntil) {
+      await recordAuthEvent(db, request, 'login_rejected_locked', { email: normalizedEmail, userId: user.id });
+      return rateLimitedResponse(lockedOutMessage(lockedUntil));
     }
 
     if (!user.email_verified) {
@@ -1049,8 +1158,16 @@ async function handleAuth(request, env, segments) {
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
+      const nowLocked = await recordFailedLogin(db, user);
+      await recordAuthEvent(db, request, 'login_failed', { email: normalizedEmail, userId: user.id });
+      if (nowLocked) {
+        await recordAuthEvent(db, request, 'account_locked', { email: normalizedEmail, userId: user.id });
+        return rateLimitedResponse(lockedOutMessage(Date.now() + LOGIN_LOCKOUT_MS));
+      }
       return jsonResponse({ error: 'Invalid email or password' }, 401);
     }
+
+    await clearLoginLockout(db, user);
 
     const lastLoginAt = new Date().toISOString();
     const hasLastLoginAtColumn = await usersTableHasColumn(db, 'last_login_at');
@@ -1149,6 +1266,12 @@ async function handleAuth(request, env, segments) {
     if (!normalizedEmail) {
       return jsonResponse({ error: 'Email is required' }, 400);
     }
+
+    if (await isAuthRateLimited(db, AUTH_RATE_LIMITS.verificationResendsPerIp, 'ip', getClientIp(request))) {
+      await recordAuthEvent(db, request, 'verification_resend_rate_limited', { email: normalizedEmail });
+      return rateLimitedResponse('Too many requests from your network. Please try again later.');
+    }
+    await recordAuthEvent(db, request, 'verification_resend_requested', { email: normalizedEmail });
 
     const unverifiedUser = await db
       .prepare('SELECT id, username, email_verified FROM users WHERE LOWER(email) = LOWER(?)')
@@ -1569,10 +1692,12 @@ async function handleAuth(request, env, segments) {
 
     const hasLastLoginAtColumn = await usersTableHasColumn(db, 'last_login_at');
     const lastLoginSelect = hasLastLoginAtColumn ? 'u.last_login_at' : 'NULL AS last_login_at';
+    const lockedUntilSelect = (await usersTableHasColumn(db, 'locked_until')) ? 'u.locked_until' : 'NULL AS locked_until';
 
     const result = await db
       .prepare(
         `SELECT u.id, u.username, u.email, u.membership_tier, u.role, u.stripe_customer_id, u.created_at, u.updated_at, ${lastLoginSelect},
+                ${lockedUntilSelect},
                 COUNT(b.id) AS bookmark_count
          FROM users u
          LEFT JOIN bookmarks b ON b.user_id = u.id
@@ -1587,6 +1712,30 @@ async function handleAuth(request, env, segments) {
     }));
 
     return jsonResponse({ users });
+  }
+
+  if (request.method === 'GET' && segments[1] === 'admin' && segments[2] === 'auth-events') {
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+
+    const access = await requireSuperAdmin(db, auth.user, env);
+    if (access.error) return access.error;
+
+    if (!(await tableExists(db, 'auth_events'))) {
+      return jsonResponse({ events: [] });
+    }
+
+    const result = await db
+      .prepare(
+        `SELECT id, event_type, email, user_id, ip, created_at
+         FROM auth_events
+         WHERE event_type NOT IN ('register_attempt', 'verification_resend_requested')
+         ORDER BY id DESC
+         LIMIT 200`
+      )
+      .all();
+
+    return jsonResponse({ events: result.results || [] });
   }
 
   if (
@@ -1720,6 +1869,22 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ message: 'If that email address is registered, a reset link has been sent.' });
     }
 
+    // Throttle before the user lookup, counting requests for unregistered addresses too, so
+    // a 429 says nothing about whether the email has an account. The request is only logged
+    // (and counted) once it gets past the limits.
+    const clientIp = getClientIp(request);
+    if (
+      (await isAuthRateLimited(db, AUTH_RATE_LIMITS.resetRequestsPerIp, 'ip', clientIp)) ||
+      (await isAuthRateLimited(db, AUTH_RATE_LIMITS.resetRequestsPerEmail, 'email', normalizedEmail))
+    ) {
+      await recordAuthEvent(db, request, 'password_reset_rate_limited', { email: normalizedEmail });
+      return rateLimitedResponse('Too many reset requests. Please try again later.');
+    }
+    if (await isAuthRateLimited(db, AUTH_RATE_LIMITS.resetRequestsPerEmailBurst, 'email', normalizedEmail)) {
+      return rateLimitedResponse('Please wait a moment before requesting another reset link.');
+    }
+    await recordAuthEvent(db, request, 'password_reset_requested', { email: normalizedEmail });
+
     console.log('[forgot-password] lookup for:', normalizedEmail);
 
     const user = await db
@@ -1817,6 +1982,14 @@ async function handleAuth(request, env, segments) {
       .run();
 
     await bumpTokenVersion(db, record.user_id);
+
+    // Proving control of the inbox is enough to lift a brute-force lockout.
+    if (await usersTableHasColumn(db, 'failed_attempts')) {
+      await db
+        .prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?')
+        .bind(record.user_id)
+        .run();
+    }
 
     await db
       .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')

@@ -92,6 +92,14 @@ Migrations are sequential numbered files in `d1/migrations/`, applied via `npm r
 
 `requireAuth` verifies the JWT and then loads the `users` row on every request, rejecting the token if the account is gone or its `tv` claim doesn't match `users.token_version`. `auth.user` is built from that row, not from the token payload. Call `bumpTokenVersion(db, userId)` to sign a user out everywhere — password change and password reset already do. If the current session should survive (as with password change), sign and return a fresh token afterwards; `signUserToken` reads the new version itself. Tokens issued before `0011_token_version.sql` have no `tv` claim and count as version 0.
 
+## Brute-force protection and the `auth_events` log
+
+`0012_login_protection.sql` adds `users.failed_attempts`/`locked_until` (epoch ms) and an `auth_events` table. Login locks an account for 15 minutes after 8 wrong passwords (`recordFailedLogin`, checked via `getLockedUntil` *before* bcrypt), a successful login or password reset clears it, and a locked login answers **429**. Per-IP and per-email caps live in the `AUTH_RATE_LIMITS` table and are counted from `auth_events` by `isAuthRateLimited`; `recordAuthEvent` writes the row (plus a `console.warn`), prunes rows older than 30 days, and never throws. Both helpers fail open before the migration is applied, and the lockout helpers read the `SELECT *` user row so absent columns are a no-op — no PRAGMA guard needed on the login path.
+
+Throttles are checked **before** the user lookup and count unregistered emails too, so a 429 never reveals whether an account exists — keep it that way when adding limits. Super admins see the log in Settings → Admin (`GET /api/auth/admin/auth-events`, which hides the high-volume `register_attempt`/`verification_resend_requested` rows). `CF-Connecting-IP` is absent in local dev, so per-IP limits don't apply there unless you send the header yourself.
+
+A Cloudflare rate-limiting rule on `/api/auth/login` sits in front of this as a supplement; its block page is HTML, not JSON, which is why `describeAuthError` in `AuthContext.jsx` has a 429 fallback message.
+
 ## Personal API keys are not (yet) an auth path
 
 Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_initial.sql`; routes at `GET/POST /api/auth/api-keys`, `DELETE .../api-keys/:id` for revoke, `DELETE .../api-keys/:id/permanent`). Keys are stored both hashed (`hashApiKey`, for lookup) and encrypted (`encryptApiKey`/`decryptApiKey`, keyed off `API_KEY_ENCRYPTION_SECRET`, falling back to `JWT_SECRET`) so the plaintext can be redisplayed once in Settings. Despite existing, these keys are **not currently wired into `requireAuth`** (the README says so too — keep it honest) — that helper is JWT-bearer-token only (`getBearerToken`). Don't assume a route documented as requiring auth accepts an API key; it doesn't yet.

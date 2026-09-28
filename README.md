@@ -43,6 +43,7 @@ Current status at a glance:
 - Tag Management page (`/tags`) for merging two tags into one, with a confirmation step since it can't be undone
 - Self-service username, email, and password changes, plus a forgot-password email flow
 - Personal API keys (Settings) can be generated and revoked; they are not yet accepted as an authentication method by the API
+- Brute-force protection: 8 failed logins lock an account for 15 minutes, with per-IP/per-email throttling of login, sign-up, verification resends and password-reset requests; auth events are logged for super admins in Settings → Admin
 - Security response headers (CSP, HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) and immutable caching for hashed assets, served via `public/_headers`
 - Dynamic XML sitemap (`/sitemap.xml`) listing static pages and opted-in public profiles, plus `robots.txt` and `llms.txt`, for search engine and AI crawler discovery
 
