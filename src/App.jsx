@@ -520,7 +520,7 @@ function App() {
       fetchBookmarks()
       // Refresh tag cloud to update counts
       setTagsRefreshKey(prev => prev + 1)
-    } catch (err) {
+    } catch {
       setError('Failed to delete bookmark')
     }
   }

@@ -873,7 +873,8 @@ function Settings({
           </div>
         )}
 
-        {activeTab === 'apiKeys' && false && (
+        {/* Unreachable while the API Keys tab button above is commented out */}
+        {activeTab === 'apiKeys' && (
           <div className="api-keys-panel">
             <form onSubmit={handleCreateApiKey} className="settings-form api-key-create-form">
               <div className="form-field">

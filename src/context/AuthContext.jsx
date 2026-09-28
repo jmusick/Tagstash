@@ -1,8 +1,9 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { authAPI } from '../api/api';
 
 const AuthContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -16,11 +17,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const refreshCurrentUser = async () => {
+  const refreshCurrentUser = useCallback(async () => {
     const response = await authAPI.getCurrentUser();
     setUser(response.data.user);
     return response.data.user;
-  };
+  }, []);
 
   useEffect(() => {
     // Check if user is already  logged in
@@ -36,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [refreshCurrentUser]);
 
   const describeAuthError = (err, fallback) => {
     if (err.response?.data?.error) return err.response.data.error;

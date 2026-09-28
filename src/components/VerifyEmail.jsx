@@ -45,7 +45,7 @@ function VerifyEmail({ logoSrc }) {
         window.clearTimeout(redirectTimer);
       }
     };
-  }, []);
+  }, [refreshCurrentUser]);
 
   return (
     <div className="auth-container">
