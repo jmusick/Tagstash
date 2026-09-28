@@ -20,10 +20,51 @@ const FETCH_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.5',
 };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Tagstash-Webhook-Secret',
+// CORS is an allowlist, not a wildcard. The web app is same-origin (and Vite
+// proxies /api in dev), and the extension normally bypasses CORS via its
+// host_permissions — the extension entries only matter when a user has
+// revoked the extension's site access. Firefox assigns each install a random
+// moz-extension:// UUID, so that scheme can only be allowed as a whole.
+const ALLOWED_ORIGINS = new Set([
+  'https://tagsta.sh',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'chrome-extension://ijoaejbpaibpodnohjmlbeanfhjdgoab',
+]);
+
+const isAllowedOrigin = (origin, env) => {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  if (origin.startsWith('moz-extension://')) return true;
+  if (!env.APP_URL) return false;
+  try {
+    return new URL(env.APP_URL).origin === origin;
+  } catch {
+    return false;
+  }
+};
+
+// /api/profiles/* is the unauthenticated, GET-only public profile API that
+// third-party sites fetch directly, so it keeps the wildcard.
+const corsHeadersFor = (request, env) => {
+  const origin = request.headers.get('Origin');
+  const isPublicApi = new URL(request.url).pathname.startsWith('/api/profiles/');
+  let allowOrigin = null;
+  if (isPublicApi) allowOrigin = '*';
+  else if (isAllowedOrigin(origin, env)) allowOrigin = origin;
+  return {
+    ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Tagstash-Webhook-Secret',
+    Vary: 'Origin',
+  };
+};
+
+const withCors = (response, request, env) => {
+  for (const [name, value] of Object.entries(corsHeadersFor(request, env))) {
+    response.headers.set(name, value);
+  }
+  return response;
 };
 
 const encoder = new TextEncoder();
@@ -159,7 +200,6 @@ const jsonResponse = (payload, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
     headers: {
-      ...corsHeaders,
       'Content-Type': 'application/json',
     },
   });
@@ -2903,9 +2943,14 @@ async function handleSupport(request, env, segments) {
   return jsonResponse({ message: 'Support request sent successfully.' }, 201);
 }
 
-export const onRequestOptions = async () => new Response(null, { status: 204, headers: corsHeaders });
+export const onRequestOptions = async ({ request, env }) =>
+  new Response(null, { status: 204, headers: corsHeadersFor(request, env) });
 
 export async function onRequest(context) {
+  return withCors(await routeRequest(context), context.request, context.env);
+}
+
+async function routeRequest(context) {
   try {
     const { request, env } = context;
     const url = new URL(request.url);
