@@ -377,7 +377,7 @@ function Import({ onClose, onImportComplete, inline = false }) {
                     </td>
                     <td className="preview-tags">
                       {bm.tags.map((t) => (
-                        <span key={t} className="tag">{t}</span>
+                        <span key={t} className="tag-stock">{t}</span>
                       ))}
                     </td>
                   </tr>

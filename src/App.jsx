@@ -28,7 +28,9 @@ import { decodeHtmlEntities } from './utils/decodeHtmlEntities'
 import { THEME_STORAGE_KEY, isValidTheme } from './utils/theme'
 import { LINK_TARGET_STORAGE_KEY, getInitialLinkTarget, isValidLinkTarget, linkTargetProps } from './utils/linkTarget'
 import { getRegistrableDomain } from './utils/domain'
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2, ExternalLink } from 'lucide-react'
+import { BookmarkTagList } from './components/BookmarkParts'
+import { displayUrl, formatSavedDate } from './utils/bookmarkDisplay'
+import { Settings as SettingsIcon, Bookmark as BookmarkIcon, Plus, Pencil, Trash2, Star, X, RefreshCw, Globe, Scissors, FileText, Info, Eye, EyeOff, Tags, Shuffle, Link2, ExternalLink } from 'lucide-react'
 
 const FREE_BOOKMARK_LIMIT = 50
 
@@ -683,7 +685,7 @@ function App() {
     }
   }
 
-  const renderOwnerCard = (bookmark, { onShowRelated } = {}) => {
+  const renderOwnerCard = (bookmark, { onShowRelated, onTagSelect, selectedTags } = {}) => {
     const isEditing = editingBookmarkId === bookmark.id
     const isFavorite = Boolean(bookmark.is_favorite)
     const isPrivate = Boolean(bookmark.is_private)
@@ -696,63 +698,67 @@ function App() {
     const hasRelated = bookmarkDomain && (domainCounts.get(bookmarkDomain) || 0) > 1
 
     return (
-      <div className="bookmark-card" id={`bookmark-${bookmark.id}`}>
+      <article className={`bookmark-card ${isEditing ? 'is-editing' : ''}`} id={`bookmark-${bookmark.id}`}>
         <div className="bookmark-header">
-          {faviconSrc && (
-            <img
-              src={faviconSrc}
-              alt="favicon"
-              className="favicon"
-              onError={(e) => e.target.style.display = 'none'}
-            />
-          )}
-          <h3>{displayTitle}</h3>
+          <span className="favicon-slot" aria-hidden="true">
+            {faviconSrc && (
+              <img src={faviconSrc} alt="" className="favicon" onError={(e) => { e.target.style.visibility = 'hidden' }} />
+            )}
+          </span>
+          <h3 className="bookmark-title">
+            {isEditing ? displayTitle : (
+              <a href={bookmark.url} {...linkTargetProps(linkTarget)}>{displayTitle}</a>
+            )}
+          </h3>
           <div className="bookmark-actions">
             {hasRelated && (
               <button
                 type="button"
                 onClick={() => onShowRelated?.(bookmark.url)}
-                className="related-btn"
+                className="icon-btn related-btn"
                 title={`Show other bookmarks from ${bookmarkDomain}`}
+                aria-label={`Show other bookmarks from ${bookmarkDomain}`}
               >
-                <Link2 size={14} />
-                <span>Related</span>
+                <Link2 size={15} />
               </button>
             )}
             <button
               type="button"
               onClick={() => handleStartEdit(bookmark)}
-              className="edit-btn"
+              className="icon-btn edit-btn"
               title="Edit bookmark"
+              aria-label="Edit bookmark"
             >
-              <Pencil size={14} />
-              <span>Edit</span>
+              <Pencil size={15} />
             </button>
             <button
               type="button"
               onClick={() => handleBookmarkFavoriteToggle(bookmark.id)}
-              className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-              title={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
-              aria-label={isFavorite ? 'Remove favorite bookmark' : 'Mark bookmark as favorite'}
+              className={`icon-btn favorite-btn ${isFavorite ? 'active' : ''}`}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={isFavorite}
             >
               <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
             </button>
             <button
               type="button"
               onClick={() => handleBookmarkPrivateToggle(bookmark.id)}
-              className={`private-btn ${isPrivate ? 'active' : ''}`}
-              title={isPrivate ? 'Make bookmark public' : 'Mark bookmark private'}
-              aria-label={isPrivate ? 'Make bookmark public' : 'Mark bookmark private'}
+              className={`icon-btn private-btn ${isPrivate ? 'active' : ''}`}
+              title={isPrivate ? 'Private: hidden from your public profile. Click to make public.' : 'Public: shown on your public profile. Click to make private.'}
+              aria-label={isPrivate ? 'Make bookmark public' : 'Make bookmark private'}
+              aria-pressed={isPrivate}
             >
               {isPrivate ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
             <button
+              type="button"
               onClick={() => handleDelete(bookmark.id)}
-              className="delete-btn"
+              className="icon-btn delete-btn"
               title="Delete bookmark"
               aria-label="Delete bookmark"
             >
-              <Trash2 size={16} />
+              <Trash2 size={15} />
             </button>
           </div>
         </div>
@@ -839,7 +845,7 @@ function App() {
               <label htmlFor={`edit-tags-${bookmark.id}`}>Tags</label>
               <div className="tag-input-shell">
                 {parseTags(editFormData.tags).map((tag) => (
-                  <span key={tag} className="tag-input-pill">
+                  <span key={tag} className="tag-stock tag-input-pill">
                     <span>{tag}</span>
                     <button
                       type="button"
@@ -888,23 +894,19 @@ function App() {
           </div>
         ) : (
           <>
-            <a href={bookmark.url} {...linkTargetProps(linkTarget)}>
-              {bookmark.url}
-            </a>
+            <div className="bookmark-meta">
+              <a className="bookmark-url" href={bookmark.url} {...linkTargetProps(linkTarget)} tabIndex={-1} aria-hidden="true">
+                {displayUrl(bookmark.url)}
+              </a>
+              <span className="bookmark-date">{formatSavedDate(bookmark.created_at)}</span>
+            </div>
             {displayDescription && (
               <p className="bookmark-description">{displayDescription}</p>
             )}
-            <div className="tags">
-              {bookmark.tags && bookmark.tags.length > 0 && bookmark.tags.map((tag) => (
-                <span key={tag.id} className="tag">{tag.name}</span>
-              ))}
-            </div>
+            <BookmarkTagList tags={bookmark.tags} selectedTags={selectedTags} onTagSelect={onTagSelect} />
           </>
         )}
-        <div className="bookmark-footer">
-          <small>Added {new Date(bookmark.created_at).toLocaleDateString()}</small>
-        </div>
-      </div>
+      </article>
     )
   }
 
@@ -913,6 +915,37 @@ function App() {
       <div className="loading-container">
         <p>Loading...</p>
       </div>
+    )
+  }
+
+  const renderHeaderNav = (active) => {
+    const navItems = [
+      { id: 'bookmarks', label: 'Bookmarks', Icon: BookmarkIcon, onClick: () => { navigate('/'); fetchBookmarks() } },
+      { id: 'tags', label: 'Tags', Icon: Tags, onClick: () => navigate('/tags') },
+      { id: 'settings', label: 'Settings', Icon: SettingsIcon, onClick: () => navigate('/settings') },
+    ]
+
+    return (
+      <>
+        <nav className="app-nav" aria-label="Main">
+          {navItems.map(({ id, label, Icon, onClick }) => (
+            <button
+              key={id}
+              type="button"
+              className={`nav-link ${active === id ? 'is-active' : ''}`}
+              aria-current={active === id ? 'page' : undefined}
+              onClick={onClick}
+            >
+              <Icon size={16} className="btn-icon" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+        <span className="app-user">{user.username}</span>
+        <button type="button" onClick={logout} className="nav-link nav-link--quiet">
+          Log out
+        </button>
+      </>
     )
   }
 
@@ -939,23 +972,11 @@ function App() {
               <div className="app">
                 <AppHeader
                   logoSrc={logoSrc}
-                  tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
                   onSelectTheme={selectTheme}
                 >
-                  <span>Welcome, {user.username}!</span>
-                  <button
-                    onClick={() => { navigate('/'); fetchBookmarks(); }}
-                    className="btn-secondary"
-                    title="Back to bookmarks"
-                  >
-                    <SettingsIcon size={16} className="btn-icon" />
-                    <span>Bookmarks</span>
-                  </button>
-                  <button onClick={logout} className="btn-secondary">
-                    Logout
-                  </button>
+                  {renderHeaderNav('settings')}
                 </AppHeader>
 
                 <main className="app-main settings-page-main">
@@ -984,23 +1005,11 @@ function App() {
               <div className="app">
                 <AppHeader
                   logoSrc={logoSrc}
-                  tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
                   onSelectTheme={selectTheme}
                 >
-                  <span>Welcome, {user.username}!</span>
-                  <button
-                    onClick={() => { navigate('/'); fetchBookmarks(); }}
-                    className="btn-secondary"
-                    title="Back to bookmarks"
-                  >
-                    <SettingsIcon size={16} className="btn-icon" />
-                    <span>Bookmarks</span>
-                  </button>
-                  <button onClick={logout} className="btn-secondary">
-                    Logout
-                  </button>
+                  {renderHeaderNav('tags')}
                 </AppHeader>
 
                 <main className="app-main settings-page-main">
@@ -1024,31 +1033,11 @@ function App() {
               <div className="app">
                 <AppHeader
                   logoSrc={logoSrc}
-                  tagline="Your tag-based bookmarking companion"
                   onLogoClick={handleLogoClick}
                   theme={theme}
                   onSelectTheme={selectTheme}
                 >
-                  <span>Welcome, {user.username}!</span>
-                  <button
-                    onClick={() => navigate('/tags')}
-                    className="btn-secondary"
-                    title="Manage tags"
-                  >
-                    <Tags size={16} className="btn-icon" />
-                    <span>Tags</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="btn-secondary"
-                    title="Open settings"
-                  >
-                    <SettingsIcon size={16} className="btn-icon" />
-                    <span>Settings</span>
-                  </button>
-                  <button onClick={logout} className="btn-secondary">
-                    Logout
-                  </button>
+                  {renderHeaderNav('bookmarks')}
                 </AppHeader>
 
                 <main className="app-main">
@@ -1066,25 +1055,25 @@ function App() {
             <>
               <button
                 type="button"
-                className="btn-secondary random-btn"
+                className="btn-ghost random-btn"
                 onClick={handleRandomBookmark}
                 disabled={bookmarks.length === 0}
                 title="Jump to a random bookmark in edit mode"
                 aria-label="Random bookmark"
               >
                 <Shuffle size={16} className="btn-icon" />
-                <span>Random</span>
+                <span className="btn-label">Random</span>
               </button>
               <button
                 type="button"
-                className={`btn-secondary refresh-btn ${refreshing ? 'spinning' : ''}`}
+                className={`btn-ghost refresh-btn ${refreshing ? 'spinning' : ''}`}
                 onClick={handleRefreshBookmarks}
                 disabled={refreshing}
                 title="Refresh bookmarks (e.g. after saving via the browser extension)"
                 aria-label="Refresh bookmarks"
               >
                 <RefreshCw size={16} className="btn-icon" />
-                <span>Refresh</span>
+                <span className="btn-label">Refresh</span>
               </button>
               <button
                 className="btn-primary"
@@ -1092,14 +1081,14 @@ function App() {
                 disabled={isFreeLimitReached && !showAddForm}
               >
                 {!showAddForm && <Plus size={16} className="btn-icon" />}
-                <span>{showAddForm ? 'Cancel' : 'Add Bookmark'}</span>
+                <span>{showAddForm ? 'Cancel' : 'Add bookmark'}</span>
               </button>
             </>
           )}
         >
           {billingMessage === 'success' && (
             <div className="billing-banner billing-banner--success">
-              <span>Your subscription is now active ΓÇö welcome to Pro!</span>
+              <span>Your subscription is active. Welcome to Pro.</span>
               <button type="button" onClick={() => setBillingMessage('')} aria-label="Dismiss">
                 <X size={14} />
               </button>
@@ -1125,7 +1114,7 @@ function App() {
 
           {showAddForm && (
             <div className="add-bookmark-form">
-              <h2>Add New Bookmark</h2>
+              <h2>Add a bookmark</h2>
               {isFreeLimitReached && (
                 <p className="usage-limit-warning">
                   Free plan limit reached ({FREE_BOOKMARK_LIMIT} bookmarks). Upgrade to paid to continue adding bookmarks.
@@ -1175,7 +1164,7 @@ function App() {
                   <label htmlFor="tags">Tags</label>
                   <div className="tag-input-shell">
                     {parseTags(formData.tags).map((tag) => (
-                      <span key={tag} className="tag-input-pill">
+                      <span key={tag} className="tag-stock tag-input-pill">
                         <span>{tag}</span>
                         <button
                           type="button"
@@ -1226,7 +1215,7 @@ function App() {
                   ></textarea>
                 </div>
                 <div className="form-actions">
-                  <button type="submit" className="btn-primary">Save Bookmark</button>
+                  <button type="submit" className="btn-primary">Save bookmark</button>
                   <button
                     type="button"
                     className="btn-secondary"

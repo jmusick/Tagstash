@@ -18,7 +18,7 @@ function AppHeader({ logoSrc, tagline, onLogoClick, theme, onSelectTheme, childr
             <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
           </a>
         )}
-        <p className="app-header-tagline">{tagline}</p>
+        {tagline && <p className="app-header-tagline">{tagline}</p>}
       </div>
 
       {hasMenuItems && (

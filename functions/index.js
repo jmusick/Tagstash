@@ -34,12 +34,12 @@ const FAQS = [
 ];
 
 const FEATURES = [
-  { title: 'Tag-Based Organization', description: 'Save links with flexible tags, then find them again with search, sorting, and tag queries.' },
-  { title: 'Free And Pro Tiers', description: 'Start free with up to 50 bookmarks, then upgrade to Pro for unlimited saving.' },
-  { title: 'Privacy Focused', description: 'Keep bookmarks private by default, with fine-grained control over what you choose to share.' },
-  { title: 'Public Profiles', description: 'Opt in to a public profile to share a read-only, tag-filterable view of your bookmarks. Mark individual bookmarks private to keep them out of it.' },
-  { title: 'Browser Extension', description: 'Pair it with the companion extension to save the current tab without breaking your flow.' },
-  { title: 'Account And Billing', description: 'Email verification, admin controls, Stripe billing, and billing portal support are built in.' },
+  { title: 'Tags instead of folders', description: 'One link can carry as many tags as it needs. Combine tags to narrow a search instead of digging through nested folders.' },
+  { title: 'Find anything fast', description: 'Search titles, links, notes and tags at once, then sort by date saved, title or URL.' },
+  { title: 'Save from your browser', description: 'The Chrome and Firefox extensions save the tab you are on without leaving the page.' },
+  { title: 'Private by default', description: 'Nothing is shared until you choose to share it. Any bookmark can be marked private.' },
+  { title: 'A public page, if you want one', description: 'Turn on a public profile to share a read-only, tag-filterable page of your bookmarks.' },
+  { title: 'Bring your bookmarks', description: 'Import an HTML export from any major browser, or a Raindrop.io CSV.' },
 ];
 
 const escapeHtml = (value) =>
@@ -92,7 +92,7 @@ export async function onRequestGet({ request, next }) {
 `;
 
   const featuresHtml = FEATURES.map(
-    (f) => `<div class="feature-card"><h3>${escapeHtml(f.title)}</h3><p>${escapeHtml(f.description)}</p></div>`
+    (f) => `<div class="feature-item"><dt>${escapeHtml(f.title)}</dt><dd>${escapeHtml(f.description)}</dd></div>`
   ).join('');
 
   const faqHtml = FAQS.map(
@@ -103,24 +103,21 @@ export async function onRequestGet({ request, next }) {
 <div class="home-container">
   <section class="hero-section">
     <div class="hero-content">
-      <h1 class="hero-title"><span class="hero-title-text">Tagstash - Tag-Based Bookmarking</span></h1>
-      <p class="hero-subtitle">Tag-first bookmarking for people who outgrow folders fast</p>
-      <div class="hero-description">
-        <p><strong>Tagstash</strong> is a modern bookmarking app built for people who want fast capture, clean organization, and retrieval by tags instead of rigid folder trees.</p>
-        <p>Create an account, verify your email, save bookmarks with tags and descriptions, then search, filter, and manage your library from anywhere.</p>
-      </div>
+      <h1 class="sr-only">Tagstash - Tag-Based Bookmarking</h1>
+      <p class="hero-headline">Tag-first bookmarking for people who outgrow folders fast.</p>
+      <p class="hero-lede">Save a link once, give it every tag that fits, and find it again from any of them. Free for your first 50 bookmarks.</p>
     </div>
   </section>
   <section class="features-section">
-    <div class="section-header"><h2>Why Tagstash?</h2></div>
-    <div class="features-grid">${featuresHtml}</div>
+    <h2 class="home-section-title">What you get</h2>
+    <dl class="features-list">${featuresHtml}</dl>
   </section>
   <section class="pricing-section">
-    <div class="section-header"><h2>Simple, Transparent Pricing</h2></div>
-    <p class="pricing-note">Free up to 50 bookmarks with no time limit. Pro is $3/month or $36/year (same $3/month rate) for unlimited bookmarks.</p>
+    <h2 class="home-section-title">Pricing</h2>
+    <p class="pricing-note">Free: up to 50 bookmarks, with no time limit. Pro: unlimited bookmarks for $3/month, or $36 once a year. Same rate either way.</p>
   </section>
   <section class="faq-section">
-    <div class="section-header"><h2>Frequently Asked Questions</h2></div>
+    <h2 class="home-section-title">Questions</h2>
     <dl class="faq-list">${faqHtml}</dl>
   </section>
 </div>

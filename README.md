@@ -25,7 +25,7 @@ Current status at a glance:
 
 - Tag-first bookmark organization
 - Bookmark title, URL, description, and tag management
-- Search, sorting, and tag query filtering
+- Search, sorting, and tag query filtering (click any tag on a bookmark or in the tag panel to filter by it; combine tags to narrow results)
 - Free tier with a 50-bookmark limit
 - Pro tier with unlimited bookmarks
 - Stripe Checkout for upgrades ($3/month or $36/year — same rate either way)

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
-import { Tag, Zap, Shield, Share2, Smartphone, Globe } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
+import HomeTagDemo from './HomeTagDemo';
 import { version } from '../../package.json';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Home.css';
@@ -105,40 +105,33 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
     }
   };
 
+  // Mirrored in functions/index.js (SSR snapshot for crawlers). Keep in sync.
   const features = [
     {
-      icon: Tag,
-      title: 'Tag-Based Organization',
-      description: 'Save links with flexible tags, then find them again with search, sorting, and tag queries.'
+      title: 'Tags instead of folders',
+      description: 'One link can carry as many tags as it needs. Combine tags to narrow a search instead of digging through nested folders.',
     },
     {
-      icon: Zap,
-      title: 'Free And Pro Tiers',
-      description: 'Start free with up to 50 bookmarks, then upgrade to Pro for unlimited saving.'
+      title: 'Find anything fast',
+      description: 'Search titles, links, notes and tags at once, then sort by date saved, title or URL.',
     },
     {
-      icon: Shield,
-      title: 'Privacy Focused',
-      description: 'Keep bookmarks private by default, with fine-grained control over what you choose to share.'
+      title: 'Save from your browser',
+      description: 'The Chrome and Firefox extensions save the tab you are on without leaving the page.',
     },
     {
-      icon: Globe,
-      title: 'Public Profiles',
-      description: 'Opt in to a public profile to share a read-only, tag-filterable view of your bookmarks. Mark individual bookmarks private to keep them out of it.'
+      title: 'Private by default',
+      description: 'Nothing is shared until you choose to share it. Any bookmark can be marked private.',
     },
     {
-      icon: Smartphone,
-      title: 'Browser Extension',
-      description: 'Pair it with the companion extension to save the current tab without breaking your flow.'
+      title: 'A public page, if you want one',
+      description: 'Turn on a public profile to share a read-only, tag-filterable page of your bookmarks.',
     },
     {
-      icon: Share2,
-      title: 'Account And Billing',
-      description: 'Email verification, admin controls, Stripe billing, and billing portal support are built in.',
-    }
+      title: 'Bring your bookmarks',
+      description: 'Import an HTML export from any major browser, or a Raindrop.io CSV.',
+    },
   ];
-
-  const tech = ['React', 'Cloudflare Pages Functions', 'D1 (SQLite)', 'JWT Auth', 'Stripe', 'Cloudflare Email Sending'];
 
   const faqs = [
     {
@@ -171,6 +164,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
+          <img src={logoSrc} alt="Tagstash" className="home-logo" />
           <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
         <div className="home-centered-content">
@@ -233,6 +227,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
+          <img src={logoSrc} alt="Tagstash" className="home-logo" />
           <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
         <div className="home-centered-content">
@@ -261,43 +256,28 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
   return (
     <div className="home-container">
       <div className="home-topbar">
+        <img src={logoSrc} alt="Tagstash" className="home-logo" />
         <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
       </div>
-      {/* Hero Section */}
+
       <section className="hero-section">
         <div className="hero-content">
-          <h1 className="hero-title">
-            <img src={logoSrc} alt="Tagstash" className="hero-logo" />
-            <span className="hero-title-text">Tagstash - Tag-Based Bookmarking</span>
-          </h1>
-          <p className="hero-subtitle">Tag-first bookmarking for people who outgrow folders fast</p>
-          <div className="hero-meta">
-            <span className="hero-meta-badge">Free up to 50 bookmarks</span>
-            <span className="hero-meta-badge">Pro for unlimited saving</span>
-            <span className="hero-meta-badge">Hosted at tagsta.sh</span>
-          </div>
-          
-          <div className="hero-description">
-            <p>
-              <strong>Tagstash</strong> is a modern bookmarking app built for people who want fast capture,
-              clean organization, and retrieval by tags instead of rigid folder trees.
-            </p>
-            <p>
-              Create an account, verify your email, save bookmarks with tags and descriptions, then search,
-              filter, and manage your library from anywhere.
-            </p>
-            <p className="tagline">Fast capture, clean organization, tag-first every time.</p>
-          </div>
+          <h1 className="sr-only">Tagstash - Tag-Based Bookmarking</h1>
+          <p className="hero-headline">Tag-first bookmarking for people who outgrow folders fast.</p>
+          <p className="hero-lede">
+            Save a link once, give it every tag that fits, and find it again from any of them.
+            Free for your first 50 bookmarks.
+          </p>
         </div>
 
         <div className="auth-card">
           <h2 className="auth-card-title">
-            {isLogin ? 'Welcome back!' : 'Get Started'}
+            {isLogin ? 'Log in' : 'Create your account'}
           </h2>
           <p className="auth-card-intro">
             {isLogin
-              ? 'Sign in to access your bookmarks, billing, tags, and saved searches.'
-              : 'Create your account to start with the free plan and upgrade later if you need more space.'}
+              ? 'Welcome back. Your bookmarks are where you left them.'
+              : 'Start on the free plan. Upgrade any time if you need more than 50 bookmarks.'}
           </p>
 
           <form onSubmit={handleSubmit} className="auth-form">
@@ -311,7 +291,8 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
                   value={formData.username}
                   onChange={handleChange}
                   required
-                  placeholder="Enter your username"
+                  placeholder="No spaces"
+                  autoComplete="username"
                   pattern="\S+"
                   title="Username cannot contain spaces"
                 />
@@ -327,12 +308,24 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                placeholder="Enter your email"
+                autoComplete="email"
+                placeholder="you@example.com"
               />
             </div>
 
             <div className="form-field">
-              <label htmlFor="password">Password</label>
+              <div className="form-field-head">
+                <label htmlFor="password">Password</label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    className="auth-toggle-button"
+                    onClick={() => { setForgotEmail(formData.email); setForgotMode(true); setForgotStatus('idle'); setForgotError(''); }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 id="password"
@@ -340,132 +333,92 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                placeholder="Enter your password"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
+                placeholder={isLogin ? '' : 'At least 6 characters'}
                 minLength={6}
               />
             </div>
 
-            {isLogin && (
-              <div style={{ textAlign: 'right', marginTop: '-4px' }}>
-                <button
-                  type="button"
-                  className="auth-toggle-button"
-                  onClick={() => { setForgotEmail(formData.email); setForgotMode(true); setForgotStatus('idle'); setForgotError(''); }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-
             {error && <div className="auth-error">{error}</div>}
 
             <button type="submit" className="auth-button" disabled={loading}>
-              {loading ? 'Please wait...' : isLogin ? 'Log In' : 'Sign Up'}
+              {loading ? 'Please wait…' : isLogin ? 'Log in' : 'Create account'}
             </button>
           </form>
 
           <div className="auth-toggle">
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            {isLogin ? 'New to Tagstash? ' : 'Already have an account? '}
             <button onClick={toggleMode} className="auth-toggle-button">
-              {isLogin ? 'Sign Up' : 'Log In'}
+              {isLogin ? 'Create an account' : 'Log in'}
             </button>
           </div>
 
-          <a
-            href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
-            target="_blank"
-            rel="noreferrer"
-            className="extension-link-card"
-          >
-            <img src="/firefox.svg" alt="Firefox" className="extension-link-browser-icon" />
-            <div className="extension-link-text">
-              <span className="extension-link-kicker">Firefox Extension</span>
-              <span className="extension-link-title">Install Tagstash for Firefox</span>
-              <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
+          <div className="extension-links">
+            <p className="extension-links-label">Save tabs straight from your browser</p>
+            <div className="extension-links-row">
+              <a
+                href="https://addons.mozilla.org/en-US/firefox/addon/tagstash/"
+                target="_blank"
+                rel="noreferrer"
+                className="extension-link-card"
+              >
+                <img src="/firefox.svg" alt="" className="extension-link-browser-icon" />
+                <span>Add to Firefox</span>
+              </a>
+              <a
+                href="https://chromewebstore.google.com/detail/tagstash/ijoaejbpaibpodnohjmlbeanfhjdgoab"
+                target="_blank"
+                rel="noreferrer"
+                className="extension-link-card"
+              >
+                <img src="/chrome.svg" alt="" className="extension-link-browser-icon" />
+                <span>Add to Chrome</span>
+              </a>
             </div>
-          </a>
-          <a
-            href="https://chromewebstore.google.com/detail/tagstash/ijoaejbpaibpodnohjmlbeanfhjdgoab"
-            target="_blank"
-            rel="noreferrer"
-            className="extension-link-card"
-          >
-            <img src="/chrome.svg" alt="Chrome" className="extension-link-browser-icon" />
-            <div className="extension-link-text">
-              <span className="extension-link-kicker">Chrome Extension</span>
-              <span className="extension-link-title">Install Tagstash for Chrome</span>
-              <span className="extension-link-copy">Save the current tab directly into your Tagstash library.</span>
-            </div>
-          </a>
+          </div>
+        </div>
+
+        <div className="hero-demo">
+          <HomeTagDemo />
         </div>
       </section>
 
-      {/* Features Section */}
       <section className="features-section">
-        <div className="section-header">
-          <h2>Why Tagstash?</h2>
-          <p>Thoughtfully designed for bookmark power users</p>
-        </div>
-
-        <div className="features-grid">
-          {features.filter(f => !f.hidden).map((feature, index) => {
-            const IconComponent = feature.icon;
-            return (
-              <div key={index} className="feature-card">
-                <div className="feature-icon">
-                  <IconComponent size={24} />
-                </div>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
-              </div>
-            );
-          })}
-        </div>
+        <h2 className="home-section-title">What you get</h2>
+        <dl className="features-list">
+          {features.map((feature) => (
+            <div key={feature.title} className="feature-item">
+              <dt>{feature.title}</dt>
+              <dd>{feature.description}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
-      {/* Pricing Section */}
       <section className="pricing-section">
-        <div className="section-header">
-          <h2>Simple, Transparent Pricing</h2>
-          <p>No gimmicks, no hidden tiers &mdash; just one Pro plan, priced honestly</p>
-        </div>
-
+        <h2 className="home-section-title">Pricing</h2>
         <div className="pricing-grid">
-          <div className="pricing-card">
-            <span className="pricing-badge">Monthly</span>
-            <div className="pricing-price">
-              <span className="pricing-amount">$3</span>
-              <span className="pricing-period">/ month</span>
-            </div>
-            <p className="pricing-description">Unlimited bookmarks, billed month to month. Cancel anytime.</p>
+          <div className="pricing-plan">
+            <h3 className="pricing-plan-name">Free</h3>
+            <p className="pricing-amount">$0</p>
+            <p className="pricing-description">Up to 50 bookmarks, with no time limit.</p>
           </div>
-
-          <div className="pricing-card pricing-card--highlight">
-            <span className="pricing-badge pricing-badge--highlight">Annual</span>
-            <div className="pricing-price">
-              <span className="pricing-amount">$36</span>
-              <span className="pricing-period">/ year</span>
-            </div>
-            <p className="pricing-description">Same $3/month rate, just paid once a year for convenience.</p>
+          <div className="pricing-plan pricing-plan--pro">
+            <h3 className="pricing-plan-name">Pro</h3>
+            <p className="pricing-amount">$3<span className="pricing-period">/month</span></p>
+            <p className="pricing-description">
+              Unlimited bookmarks. Pay monthly and cancel any time, or pay $36 once a year. Same rate either way.
+            </p>
           </div>
         </div>
-
-        <p className="pricing-note">
-          Monthly or annual, it&rsquo;s the same $3/month either way &mdash; no discount games, no surprise
-          price hikes. The free plan covers up to 50 bookmarks with no time limit; upgrade to Pro anytime
-          from your account settings once you&rsquo;re signed in.
-        </p>
+        <p className="pricing-note">Upgrade from Settings whenever you need more room.</p>
       </section>
 
-      {/* FAQ Section */}
       <section className="faq-section">
-        <div className="section-header">
-          <h2>Frequently Asked Questions</h2>
-        </div>
-
+        <h2 className="home-section-title">Questions</h2>
         <dl className="faq-list">
-          {faqs.map((faq, index) => (
-            <div key={index} className="faq-item">
+          {faqs.map((faq) => (
+            <div key={faq.question} className="faq-item">
               <dt>{faq.question}</dt>
               <dd>{faq.answer}</dd>
             </div>
@@ -473,36 +426,17 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
         </dl>
       </section>
 
-      {/* Tech Stack Section */}
-      <section className="tech-section">
-        <div className="section-header">
-          <h2>Built With</h2>
-          <p>Modern, open-source technologies</p>
-        </div>
-
-        <div className="tech-stack">
-          {tech.map((name, index) => (
-            <div key={index} className="tech-badge">
-              {name}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
       <footer className="home-footer">
-        <p>&copy; {new Date().getFullYear()}{' '}
+        <span className="home-footer-copyright">
+          &copy; {new Date().getFullYear()}{' '}
           <a href="https://stonedragonmedia.com/" target="_blank" rel="noopener noreferrer">
             Stone Dragon Media LLC
           </a>
-          &nbsp;&middot;&nbsp;
-          <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
-          &nbsp;&middot;&nbsp;
-          <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>
-          &nbsp;&middot;&nbsp;
-          <button className="home-footer-privacy-link" data-cookie-preferences>Cookie Choices</button>
-          &nbsp;&middot;&nbsp;<span className="version">v{version}</span>
-        </p>
+        </span>
+        <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
+        <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>
+        <button className="home-footer-privacy-link" data-cookie-preferences>Cookie Choices</button>
+        <span className="version">v{version}</span>
       </footer>
     </div>
   );

@@ -1,42 +1,37 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
-import { Star, Search, X } from 'lucide-react'
+import { Star, Search, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import TagCloud from './TagCloud'
 import { decodeHtmlEntities } from '../utils/decodeHtmlEntities'
 import { getRegistrableDomain } from '../utils/domain'
 import { DEFAULT_LINK_TARGET, linkTargetProps } from '../utils/linkTarget'
+import { BookmarkTagList } from './BookmarkParts'
+import { displayUrl, formatSavedDate } from '../utils/bookmarkDisplay'
 
-function DefaultCard({ bookmark, linkTarget }) {
+function DefaultCard({ bookmark, linkTarget, selectedTags, onTagSelect }) {
   const displayTitle = decodeHtmlEntities(bookmark.title || '')
   const displayDescription = decodeHtmlEntities(bookmark.description || '')
 
   return (
-    <div className="bookmark-card">
+    <article className="bookmark-card">
       <div className="bookmark-header">
-        {bookmark.favicon_url && (
-          <img
-            src={bookmark.favicon_url}
-            alt="favicon"
-            className="favicon"
-            onError={(e) => { e.target.style.display = 'none' }}
-          />
-        )}
-        <h3>{displayTitle}</h3>
+        <span className="favicon-slot" aria-hidden="true">
+          {bookmark.favicon_url && (
+            <img src={bookmark.favicon_url} alt="" className="favicon" onError={(e) => { e.target.style.visibility = 'hidden' }} />
+          )}
+        </span>
+        <h3 className="bookmark-title">
+          <a href={bookmark.url} {...linkTargetProps(linkTarget)}>{displayTitle}</a>
+        </h3>
       </div>
-      <a href={bookmark.url} {...linkTargetProps(linkTarget)}>
-        {bookmark.url}
-      </a>
+      <div className="bookmark-meta">
+        <span className="bookmark-url">{displayUrl(bookmark.url)}</span>
+        <span className="bookmark-date">{formatSavedDate(bookmark.created_at)}</span>
+      </div>
       {displayDescription && (
         <p className="bookmark-description">{displayDescription}</p>
       )}
-      <div className="tags">
-        {bookmark.tags && bookmark.tags.length > 0 && bookmark.tags.map((tag) => (
-          <span key={tag.id ?? tag.name} className="tag">{tag.name}</span>
-        ))}
-      </div>
-      <div className="bookmark-footer">
-        <small>Added {new Date(bookmark.created_at).toLocaleDateString()}</small>
-      </div>
-    </div>
+      <BookmarkTagList tags={bookmark.tags} selectedTags={selectedTags} onTagSelect={onTagSelect} />
+    </article>
   )
 }
 
@@ -220,7 +215,7 @@ function BookmarkBrowser({
   const activeFilterChipLabel = focusBookmarkId
     ? 'Random'
     : domainFilter
-      ? `Related: ${domainFilter}`
+      ? `Same site: ${domainFilter}`
       : null
 
   const handleClearAllFilters = () => {
@@ -249,7 +244,7 @@ function BookmarkBrowser({
                   if (focusBookmarkId) onClearFocus?.()
                   setSearchTerm(e.target.value)
                 }}
-                placeholder={activeFilterChipLabel ? '' : 'Search bookmarks'}
+                placeholder={activeFilterChipLabel ? '' : 'Search titles, links, notes and tags'}
                 aria-label="Search bookmarks"
               />
               {showFavoritesFilter && (
@@ -288,19 +283,24 @@ function BookmarkBrowser({
 
         <div className="bookmarks-section">
           {filteredBookmarks.length > 0 && (
-            <div className="pagination-toolbar">
-              <div className="pagination-toolbar-group">
+            <div className="results-bar">
+              <p className="results-count" aria-live="polite">
+                {filteredBookmarks.length === bookmarks.length
+                  ? `${bookmarks.length} ${bookmarks.length === 1 ? 'bookmark' : 'bookmarks'}`
+                  : `${filteredBookmarks.length} of ${bookmarks.length} bookmarks`}
+              </p>
+              <div className="results-controls">
                 <div className="sort-control">
-                  <label htmlFor="sortBy">Sort by</label>
+                  <label htmlFor="sortBy">Sort</label>
                   <select
                     id="sortBy"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                   >
-                    <option value="date">Date saved (newest)</option>
+                    <option value="date">Date saved</option>
                     <option value="lastUpdated">Last updated</option>
-                    <option value="alpha">Alphabetical (A-Z)</option>
-                    <option value="url">URL (A-Z)</option>
+                    <option value="alpha">Title</option>
+                    <option value="url">URL</option>
                   </select>
                   <select
                     id="sortDirection"
@@ -308,12 +308,12 @@ function BookmarkBrowser({
                     value={sortDirection}
                     onChange={(e) => setSortDirection(e.target.value)}
                   >
-                    <option value="asc">Ascending</option>
-                    <option value="desc">Descending</option>
+                    <option value="desc">{sortBy === 'alpha' || sortBy === 'url' ? 'Z to A' : 'Newest first'}</option>
+                    <option value="asc">{sortBy === 'alpha' || sortBy === 'url' ? 'A to Z' : 'Oldest first'}</option>
                   </select>
                 </div>
                 <div className="pagination-page-size">
-                  <label htmlFor="itemsPerPage">Show</label>
+                  <label htmlFor="itemsPerPage">Per page</label>
                   <select
                     id="itemsPerPage"
                     value={itemsPerPage}
@@ -325,37 +325,26 @@ function BookmarkBrowser({
                     <option value={80}>80</option>
                   </select>
                 </div>
-              </div>
-              <div className="pagination-controls">
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </button>
-                <span className="pagination-status">Page {currentPage} of {totalPages}</span>
-                <button
-                  type="button"
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </button>
+                {totalPages > 1 && (
+                  <Pager currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
+                )}
               </div>
             </div>
           )}
           {loading ? (
-            <div className="loading-message">Loading bookmarks...</div>
+            <div className="loading-message">Loading bookmarks…</div>
           ) : filteredBookmarks.length === 0 ? (
             <div className="empty-state">
-              <p>
-                {searchTerm.trim() || selectedTags.length > 0 || showFavoritesOnly || focusBookmarkId || domainFilter
-                  ? 'No bookmarks match your search.'
-                  : emptyStateMessage}
-              </p>
+              {hasActiveFilters ? (
+                <>
+                  <p>No bookmarks match these filters.</p>
+                  <button type="button" className="btn-secondary" onClick={handleClearAllFilters}>
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <p>{emptyStateMessage}</p>
+              )}
             </div>
           ) : (
             <>
@@ -363,66 +352,65 @@ function BookmarkBrowser({
                 {paginatedBookmarks.map((bookmark) => (
                   <Fragment key={bookmark.id}>
                     {renderCard
-                      ? renderCard(bookmark, { onShowRelated: handleShowRelated })
-                      : <DefaultCard bookmark={bookmark} linkTarget={linkTarget} />}
+                      ? renderCard(bookmark, { onShowRelated: handleShowRelated, onTagSelect: handleTagSelect, selectedTags })
+                      : (
+                        <DefaultCard
+                          bookmark={bookmark}
+                          linkTarget={linkTarget}
+                          selectedTags={selectedTags}
+                          onTagSelect={handleTagSelect}
+                        />
+                      )}
                   </Fragment>
                 ))}
               </div>
-              <div className="pagination-toolbar pagination-toolbar-bottom">
-                <div className="pagination-controls">
-                  <button
-                    type="button"
-                    className="pagination-btn"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                  <span className="pagination-status">Page {currentPage} of {totalPages}</span>
-                  <button
-                    type="button"
-                    className="pagination-btn"
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </button>
+              {totalPages > 1 && (
+                <div className="results-bar results-bar--bottom">
+                  <Pager currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>
       </div>
 
       <aside className="sidebar">
-        {domainFilter && (
-          <div className="active-tag-filter sidebar-tag-filter">
+        {(domainFilter || selectedTags.length > 0) && (
+          <div className="active-tag-filter">
             <div className="active-tag-filter-head">
-              <span>Related: {domainFilter}</span>
-              <button type="button" onClick={handleClearDomainFilter} aria-label="Clear related bookmarks filter">
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-        {selectedTags.length > 0 && (
-          <div className="active-tag-filter sidebar-tag-filter">
-            <div className="active-tag-filter-head">
-              <span>Tag Query</span>
-              <button type="button" onClick={() => setSelectedTags([])} aria-label="Clear all tag filters">
-                <X size={14} />
+              <span>Filtering by</span>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setSelectedTags([])
+                  handleClearDomainFilter()
+                }}
+              >
+                Clear
               </button>
             </div>
             <div className="active-tag-filter-list">
+              {domainFilter && (
+                <span className="active-domain-filter">
+                  <span>Same site: {domainFilter}</span>
+                  <button type="button" onClick={handleClearDomainFilter} aria-label="Clear related bookmarks filter">
+                    <X size={13} />
+                  </button>
+                </span>
+              )}
               {selectedTags.map((tag) => (
-                <span key={tag} className="active-tag-filter-item">
+                <span key={tag} className="tag-stock tag-stock--active">
                   <span>{tag}</span>
-                  <button type="button" onClick={() => handleTagRemove(tag)} aria-label={`Remove ${tag} from tag query`}>
-                    <X size={14} />
+                  <button type="button" className="tag-stock-remove" onClick={() => handleTagRemove(tag)} aria-label={`Remove ${tag} from filter`}>
+                    <X size={12} />
                   </button>
                 </span>
               ))}
             </div>
+            {selectedTags.length > 1 && (
+              <p className="active-tag-filter-hint">Showing bookmarks that have all of these tags.</p>
+            )}
           </div>
         )}
         <TagCloud
@@ -435,6 +423,32 @@ function BookmarkBrowser({
         />
       </aside>
     </>
+  )
+}
+
+function Pager({ currentPage, totalPages, onChange }) {
+  return (
+    <div className="pagination-controls">
+      <button
+        type="button"
+        className="pagination-btn"
+        onClick={() => onChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      <span className="pagination-status">Page {currentPage} of {totalPages}</span>
+      <button
+        type="button"
+        className="pagination-btn"
+        onClick={() => onChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        aria-label="Next page"
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
   )
 }
 

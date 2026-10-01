@@ -139,14 +139,14 @@ function TagsPage() {
               return (
                 <li key={pair.plural.id} className="tag-pair-row">
                   <div className="tag-pair-names">
-                    <span className="tag-pair-name">
+                    <span className="tag-stock tag-pair-name">
                       {pair.singular.name}
                       <span className="tag-pair-count">{pair.singular.count}</span>
                     </span>
                     <span className="tag-pair-divider" aria-hidden="true">
                       /
                     </span>
-                    <span className="tag-pair-name">
+                    <span className="tag-stock tag-pair-name">
                       {pair.plural.name}
                       <span className="tag-pair-count">{pair.plural.count}</span>
                     </span>
@@ -188,7 +188,7 @@ function TagsPage() {
           <div className="tag-merge-slot">
             <span className="tag-merge-slot-label">1. Merge this tag&hellip;</span>
             {sourceTag ? (
-              <span className="tag-merge-chip tag-merge-chip-source">
+              <span className="tag-stock tag-merge-chip tag-merge-chip-source">
                 {sourceTag.name}
                 <button type="button" onClick={() => setSourceTagId(null)} aria-label="Clear source tag selection">
                   <X size={13} />
@@ -204,7 +204,7 @@ function TagsPage() {
           <div className="tag-merge-slot">
             <span className="tag-merge-slot-label">2. &hellip;into this tag</span>
             {targetTag ? (
-              <span className="tag-merge-chip tag-merge-chip-target">
+              <span className="tag-stock tag-merge-chip tag-merge-chip-target">
                 {targetTag.name}
                 <button type="button" onClick={() => setTargetTagId(null)} aria-label="Clear target tag selection">
                   <X size={13} />

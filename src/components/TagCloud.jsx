@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { bookmarksAPI } from '../api/api';
-import { Tag, Search, Plus, Star, X } from 'lucide-react';
+import { Search, Plus, Star, X } from 'lucide-react';
 import './TagCloud.css';
 
 function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd, onTagFavoriteToggle, refreshKey = 0, showActions = true }) {
@@ -29,10 +29,14 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
 
   const tags = selfManaged ? fetchedTags : providedTags;
 
-  const getTagSize = (index, totalTags) => {
-    // Distribute tags in 3 size categories
-    if (index === 0) return 'large'; // Most used tag
-    if (totalTags <= 3 || index < Math.ceil(totalTags / 2)) return 'medium';
+  // Size each tag by how much it's used relative to the busiest tag, so the
+  // rack doubles as a picture of the library.
+  const maxCount = tags.reduce((max, tag) => Math.max(max, Number(tag.count) || 0), 0);
+  const getTagSize = (count) => {
+    if (maxCount <= 1) return 'medium';
+    const ratio = (Number(count) || 0) / maxCount;
+    if (ratio >= 0.6) return 'large';
+    if (ratio >= 0.3) return 'medium';
     return 'small';
   };
 
@@ -44,10 +48,7 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
   return (
     <div className="tag-cloud">
       <div className="tag-cloud-header">
-        <h3>
-          <Tag size={16} className="tag-cloud-title-icon" />
-          <span>Your Tags</span>
-        </h3>
+        <h3>Tags</h3>
         <span className="tag-count">{tags.length}</span>
       </div>
 
@@ -77,7 +78,7 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
         <div className="tag-cloud-loading">Loading tags...</div>
       ) : tags.length === 0 ? (
         <div className="tag-cloud-empty">
-          <p>No tags yet. Add bookmarks to create tags!</p>
+          <p>Tags you add to bookmarks show up here.</p>
         </div>
       ) : visibleTags.length === 0 ? (
         <div className="tag-cloud-empty">
@@ -85,7 +86,7 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
         </div>
       ) : (
         <div className="tag-cloud-items">
-          {visibleTags.map((tag, index) => {
+          {visibleTags.map((tag) => {
             const normalizedTag = tag.name?.toLowerCase();
             const isSelected = selectedTags.includes(normalizedTag);
             const isFavorite = Boolean(tag.is_favorite);
@@ -93,8 +94,8 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
             return (
               <div
                 key={tag.id ?? tag.name}
-                className={`tag-cloud-item tag-size-${getTagSize(index, visibleTags.length)} ${isSelected ? 'active' : ''}`}
-                title={`${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
+                className={`tag-stock tag-cloud-item tag-size-${getTagSize(tag.count)} ${isSelected ? 'tag-stock--active active' : ''} ${isFavorite ? 'is-favorite' : ''}`}
+                title={`${tag.name}: ${tag.count} bookmark${tag.count !== 1 ? 's' : ''}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => onTagSelect?.(tag.name)}
@@ -105,6 +106,8 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                   }
                 }}
               >
+                <span className="tag-name">{tag.name}</span>
+                <span className="tag-badge">{tag.count}</span>
                 {showActions && (
                   <span className="tag-chip-actions">
                     <button
@@ -114,11 +117,11 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                         e.stopPropagation();
                         onTagAdd?.(tag.name);
                       }}
-                      title={isSelected ? 'Already in query' : `Add ${tag.name} to query`}
-                      aria-label={isSelected ? `${tag.name} already in query` : `Add ${tag.name} to query`}
+                      title={isSelected ? 'Already in filter' : `Add ${tag.name} to filter`}
+                      aria-label={isSelected ? `${tag.name} already in filter` : `Add ${tag.name} to filter`}
                       disabled={isSelected}
                     >
-                      <Plus size={14} />
+                      <Plus size={12} />
                     </button>
                     {onTagFavoriteToggle && (
                       <button
@@ -131,13 +134,11 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                         title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
                         aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
                       >
-                        <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
+                        <Star size={12} fill={isFavorite ? 'currentColor' : 'none'} />
                       </button>
                     )}
                   </span>
                 )}
-                <span className="tag-name">{tag.name}</span>
-                <span className="tag-badge">{tag.count}</span>
               </div>
             );
           })}
