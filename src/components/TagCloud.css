@@ -110,14 +110,9 @@
   gap: 0.55rem 0.4rem;
 }
 
-.tag-cloud-item {
-  transition: transform 0.15s ease;
-}
-
-.tag-cloud-item:hover {
-  transform: rotate(-2deg);
-}
-
+/* Hover only changes color, never size or position: a tag that grows or moves
+   on hover can slide out from under the cursor, un-hover, snap back, and
+   flicker. */
 .tag-cloud-item:not(.tag-stock--active):hover {
   --tag-bg: var(--color-tag-bg-hover);
 }
@@ -146,8 +141,20 @@
   opacity: 0.62;
 }
 
-/* Per-tag actions (add to filter, favorite). Shown on hover/focus for mouse
-   users; always shown on touch screens, where there is no hover. */
+.tag-fav-mark {
+  flex-shrink: 0;
+  margin-right: -0.1em;
+  color: var(--color-marigold);
+}
+
+.tag-stock--active .tag-fav-mark {
+  color: #fff;
+}
+
+/* Per-tag actions (add to filter, favorite).
+   Touch screens: always shown inline, since there is no hover.
+   Mouse/keyboard: shown on hover/focus as an overlay that extends the tag to
+   the right, drawn on top of its neighbours instead of widening the tag. */
 .tag-chip-actions {
   display: inline-flex;
   align-items: center;
@@ -155,20 +162,35 @@
 }
 
 @media (hover: hover) {
+  /* Leave room on the right so the overlay of the last tag in a row stays
+     inside the panel. */
+  .tag-cloud-items {
+    padding-right: 2.4rem;
+  }
+
   .tag-chip-actions {
-    max-width: 0;
-    margin-left: -0.4em;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(100% - 0.3em);
+    padding: 0 0.3em 0 0.15em;
+    border-radius: 0 0.3em 0.3em 0;
+    background: var(--tag-bg);
     opacity: 0;
-    overflow: hidden;
-    transition: max-width 0.15s ease, opacity 0.15s ease, margin 0.15s ease;
+    visibility: hidden;
+    transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+  }
+
+  .tag-cloud-item:hover,
+  .tag-cloud-item:focus-within {
+    z-index: 3;
   }
 
   .tag-cloud-item:hover .tag-chip-actions,
-  .tag-cloud-item:focus-within .tag-chip-actions,
-  .tag-cloud-item:focus-visible .tag-chip-actions {
-    max-width: 3rem;
-    margin-left: 0;
+  .tag-cloud-item:focus-within .tag-chip-actions {
     opacity: 1;
+    visibility: visible;
+    transition: opacity 0.12s ease, visibility 0s;
   }
 }
 
@@ -204,22 +226,13 @@
   cursor: default;
 }
 
-/* A favorite tag keeps its star visible even when the other actions are hidden. */
 .tag-cloud-chip-star.active {
   opacity: 1;
   color: var(--color-marigold);
 }
 
-@media (hover: hover) {
-  .tag-cloud-item.is-favorite .tag-chip-actions {
-    max-width: 3rem;
-    margin-left: 0;
-    opacity: 1;
-  }
-
-  .tag-cloud-item.is-favorite:not(:hover):not(:focus-within) .tag-cloud-chip-plus {
-    display: none;
-  }
+.tag-stock--active .tag-cloud-chip-star.active {
+  color: #fff;
 }
 
 @media (max-width: 1024px) {

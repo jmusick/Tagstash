@@ -108,11 +108,6 @@
 
 .tag-demo-rack .tag-stock {
   font-size: 0.95rem;
-  transition: transform 0.15s ease;
-}
-
-.tag-demo-rack .tag-stock:hover {
-  transform: rotate(-2deg);
 }
 
 .tag-demo-rack .tag-stock:not(.tag-stock--active):hover {

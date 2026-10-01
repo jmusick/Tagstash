@@ -106,6 +106,9 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                   }
                 }}
               >
+                {isFavorite && (
+                  <Star size={11} fill="currentColor" className="tag-fav-mark" aria-label="Favorite" />
+                )}
                 <span className="tag-name">{tag.name}</span>
                 <span className="tag-badge">{tag.count}</span>
                 {showActions && (
