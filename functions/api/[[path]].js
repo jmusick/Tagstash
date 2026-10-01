@@ -835,16 +835,24 @@ const normalizeBookmarkUrl = (value) => {
     normalized = `https://${normalized}`;
   }
 
-  // A trailing slash on a bare root path (no deeper path/query/hash) is purely
-  // cosmetic, so drop it for a consistent stored form regardless of where the
-  // URL was copied from (e.g. Firefox's address bar always includes it).
+  // Keep a trailing slash on bare roots, including URLs produced by Base URL.
   try {
     const parsed = new URL(normalized);
     if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
-      return parsed.origin;
+      return `${parsed.origin}/`;
     }
   } catch {}
 
+  return normalized;
+};
+
+// Read compatibility for roots saved before trailing slashes were retained.
+const legacyBookmarkUrl = (value) => {
+  const normalized = normalizeBookmarkUrl(value);
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) return parsed.origin;
+  } catch {}
   return normalized;
 };
 
@@ -2116,8 +2124,8 @@ async function handleBookmarks(request, env, segments) {
     }
 
     const bookmark = await db
-      .prepare('SELECT * FROM bookmarks WHERE user_id = ? AND url = ?')
-      .bind(auth.user.id, url)
+      .prepare('SELECT * FROM bookmarks WHERE user_id = ? AND url IN (?, ?) ORDER BY id LIMIT 1')
+      .bind(auth.user.id, normalizeBookmarkUrl(url), legacyBookmarkUrl(url))
       .first();
 
     if (!bookmark) {
@@ -2172,8 +2180,8 @@ async function handleBookmarks(request, env, segments) {
       }
 
       const existing = await db
-        .prepare('SELECT id FROM bookmarks WHERE user_id = ? AND url = ?')
-        .bind(auth.user.id, normalizedUrl)
+        .prepare('SELECT id FROM bookmarks WHERE user_id = ? AND url IN (?, ?)')
+        .bind(auth.user.id, normalizedUrl, legacyBookmarkUrl(normalizedUrl))
         .first();
 
       if (existing) {

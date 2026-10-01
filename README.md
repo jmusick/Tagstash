@@ -25,6 +25,7 @@ Current status at a glance:
 
 - Tag-first bookmark organization
 - Bookmark title, URL, description, and tag management
+- Base URL keeps the site root with a trailing slash (for example, `https://www.google.com/`); Trim URL removes queries and fragments
 - Search, sorting, and tag query filtering (click any tag on a bookmark or in the tag panel to filter by it; combine tags to narrow results)
 - Free tier with a 50-bookmark limit
 - Pro tier with unlimited bookmarks

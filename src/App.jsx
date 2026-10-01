@@ -51,13 +51,11 @@ const normalizeBookmarkUrl = (value) => {
   }
   if (!normalized) return ''
 
-  // A trailing slash on a bare root path (no deeper path/query/hash) is purely
-  // cosmetic, so drop it for a consistent stored form regardless of where the
-  // URL was copied from (e.g. Firefox's address bar always includes it).
+  // Keep a trailing slash on bare roots, including URLs produced by Base URL.
   try {
     const parsed = new URL(normalized)
     if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
-      return parsed.origin
+      return `${parsed.origin}/`
     }
   } catch {}
 
@@ -409,7 +407,7 @@ function App() {
   const handleBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(formData.url))
-      setFormData(prev => ({ ...prev, url: u.origin }))
+      setFormData(prev => ({ ...prev, url: `${u.origin}/` }))
     } catch {}
   }
 
@@ -423,7 +421,7 @@ function App() {
   const handleEditBaseUrl = () => {
     try {
       const u = new URL(normalizeBookmarkUrl(editFormData.url))
-      setEditFormData(prev => ({ ...prev, url: u.origin }))
+      setEditFormData(prev => ({ ...prev, url: `${u.origin}/` }))
     } catch {}
   }
 
@@ -802,7 +800,7 @@ function App() {
                     </a>
                     <button type="button" className="btn-field-action" onClick={handleEditBaseUrl}>
                       <Globe size={13} /><span>Base URL</span>
-                      <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
+                      <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com/." />
                     </button>
                     <button type="button" className="btn-field-action" onClick={handleEditTrimUrl}>
                       <Scissors size={13} /><span>Trim URL</span>
@@ -1128,7 +1126,7 @@ function App() {
                       <div className="field-actions">
                         <button type="button" className="btn-field-action" onClick={handleBaseUrl}>
                           <Globe size={13} /><span>Base URL</span>
-                          <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com." />
+                          <ActionInfo text="Keeps only the site root (protocol + domain), removing all path and query parts. Example: https://example.com/docs/page?ref=nav becomes https://example.com/." />
                         </button>
                         <button type="button" className="btn-field-action" onClick={handleTrimUrl}>
                           <Scissors size={13} /><span>Trim URL</span>
