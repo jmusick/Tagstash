@@ -110,17 +110,28 @@
   gap: 0.55rem 0.4rem;
 }
 
-.tag-size-large {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.tag-size-medium {
-  font-size: 0.9rem;
-}
-
-.tag-size-small {
+/* Usage scale, least used (1) to most used (5). Step 1 stays at the
+   readable minimum for tag labels. */
+.tag-size-1 {
   font-size: 0.82rem;
+}
+
+.tag-size-2 {
+  font-size: 0.92rem;
+}
+
+.tag-size-3 {
+  font-size: 1.05rem;
+}
+
+.tag-size-4 {
+  font-size: 1.22rem;
+  font-weight: 650;
+}
+
+.tag-size-5 {
+  font-size: 1.45rem;
+  font-weight: 700;
 }
 
 .tag-name {
@@ -149,8 +160,8 @@
   background: transparent;
   color: inherit;
   border-radius: 999px;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.35em;
+  height: 1.35em;
   display: inline-flex;
   align-items: center;
   justify-content: center;

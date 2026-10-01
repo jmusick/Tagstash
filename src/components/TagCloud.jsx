@@ -30,14 +30,13 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
   const tags = selfManaged ? fetchedTags : providedTags;
 
   // Size each tag by how much it's used relative to the busiest tag, so the
-  // rack doubles as a picture of the library.
+  // rack doubles as a picture of the library. Log scale, because tag counts are
+  // long-tailed: a few heavy tags and many used once or twice. Five steps, 1-5.
   const maxCount = tags.reduce((max, tag) => Math.max(max, Number(tag.count) || 0), 0);
   const getTagSize = (count) => {
-    if (maxCount <= 1) return 'medium';
-    const ratio = (Number(count) || 0) / maxCount;
-    if (ratio >= 0.6) return 'large';
-    if (ratio >= 0.3) return 'medium';
-    return 'small';
+    if (maxCount <= 1) return 3;
+    const weight = Math.log(Math.max(1, Number(count) || 0)) / Math.log(maxCount);
+    return 1 + Math.round(weight * 4);
   };
 
   const query = tagSearch.trim().toLowerCase();
@@ -121,7 +120,7 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                       aria-label={isSelected ? `${tag.name} already in filter` : `Add ${tag.name} to filter`}
                       disabled={isSelected}
                     >
-                      <Plus size={12} />
+                      <Plus size="0.85em" />
                     </button>
                     {onTagFavoriteToggle && (
                       <button
@@ -134,7 +133,7 @@ function TagCloud({ tags: providedTags, selectedTags = [], onTagSelect, onTagAdd
                         title={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
                         aria-label={isFavorite ? `Remove ${tag.name} from favorites` : `Mark ${tag.name} as a favorite`}
                       >
-                        <Star size={12} fill={isFavorite ? 'currentColor' : 'none'} />
+                        <Star size="0.85em" fill={isFavorite ? 'currentColor' : 'none'} />
                       </button>
                     )}
                   </span>
