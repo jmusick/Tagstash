@@ -110,13 +110,6 @@
   gap: 0.55rem 0.4rem;
 }
 
-/* Hover only changes color, never size or position: a tag that grows or moves
-   on hover can slide out from under the cursor, un-hover, snap back, and
-   flicker. */
-.tag-cloud-item:not(.tag-stock--active):hover {
-  --tag-bg: var(--color-tag-bg-hover);
-}
-
 .tag-size-large {
   font-size: 1rem;
   font-weight: 700;
@@ -141,57 +134,13 @@
   opacity: 0.62;
 }
 
-.tag-fav-mark {
-  flex-shrink: 0;
-  margin-right: -0.1em;
-  color: var(--color-marigold);
-}
-
-.tag-stock--active .tag-fav-mark {
-  color: #fff;
-}
-
-/* Per-tag actions (add to filter, favorite).
-   Touch screens: always shown inline, since there is no hover.
-   Mouse/keyboard: shown on hover/focus as an overlay that extends the tag to
-   the right, drawn on top of its neighbours instead of widening the tag. */
+/* Per-tag actions (add to filter, favorite) are always visible inline, with
+   no hover reveal: nothing about a tag changes size or position on hover. */
 .tag-chip-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-}
-
-@media (hover: hover) {
-  /* Leave room on the right so the overlay of the last tag in a row stays
-     inside the panel. */
-  .tag-cloud-items {
-    padding-right: 2.4rem;
-  }
-
-  .tag-chip-actions {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: calc(100% - 0.3em);
-    padding: 0 0.3em 0 0.15em;
-    border-radius: 0 0.3em 0.3em 0;
-    background: var(--tag-bg);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.12s ease, visibility 0s linear 0.12s;
-  }
-
-  .tag-cloud-item:hover,
-  .tag-cloud-item:focus-within {
-    z-index: 3;
-  }
-
-  .tag-cloud-item:hover .tag-chip-actions,
-  .tag-cloud-item:focus-within .tag-chip-actions {
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.12s ease, visibility 0s;
-  }
+  margin-right: -0.25em;
 }
 
 .tag-cloud-chip-plus,
@@ -208,17 +157,6 @@
   padding: 0;
   cursor: pointer;
   opacity: 0.7;
-}
-
-.tag-cloud-chip-plus:hover:not(:disabled),
-.tag-cloud-chip-star:hover {
-  opacity: 1;
-  background: rgba(var(--color-accent-rgb), 0.2);
-}
-
-.tag-stock--active .tag-cloud-chip-plus:hover:not(:disabled),
-.tag-stock--active .tag-cloud-chip-star:hover {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 .tag-cloud-chip-plus:disabled {
