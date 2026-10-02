@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /settings
 Disallow: /tags
+Disallow: /verify-email
+Disallow: /reset-password
 
 Sitemap: https://tagsta.sh/sitemap.xml

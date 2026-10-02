@@ -3,10 +3,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import bcrypt from 'bcryptjs';
 
 // Run the real queries and migrations against isolated in-memory SQLite, with D1's API shape.
-export async function createAuthEnv() {
+export async function createAuthEnv({ emailTokenHashes = true } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   const migrations = new URL('../../d1/migrations/', import.meta.url);
-  for (const file of readdirSync(migrations).filter((name) => name.endsWith('.sql')).sort()) {
+  for (const file of readdirSync(migrations).filter((name) => name.endsWith('.sql') && (emailTokenHashes || name !== '0013_email_token_hashes.sql')).sort()) {
     sqlite.exec(readFileSync(new URL(file, migrations), 'utf8'));
   }
   const password = 'session-test-password';

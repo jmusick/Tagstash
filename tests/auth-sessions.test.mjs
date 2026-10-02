@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+const digest = (token) => createHash('sha256').update(token).digest('hex');
 import { SignJWT, jwtVerify } from 'jose';
 import { onRequest, onRequestOptions } from '../functions/api/[[path]].js';
 import { createAuthEnv } from './helpers/auth-env.mjs';
@@ -15,6 +18,87 @@ const login = (env, headers = webHeaders) => call(env, 'auth/login', {
 });
 const cookieFrom = (response) => response.headers.get('Set-Cookie').split(';')[0];
 const tokenFrom = (cookie) => cookie.slice(cookie.indexOf('=') + 1);
+
+test('wrong passwords do not disclose unverified accounts; correct passwords get verification guidance', async () => {
+  const env = await createAuthEnv();
+  try {
+    env.sqlite.exec('UPDATE users SET email_verified = 0');
+    for (const email of ['session@example.com', 'missing@example.com']) {
+      const response = await call(env, 'auth/login', { method: 'POST', body: { email, password: 'wrong-password' } });
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error, 'Invalid email or password');
+    }
+    assert.equal(env.sqlite.prepare('SELECT failed_attempts FROM users').get().failed_attempts, 1);
+    const response = await login(env);
+    assert.equal(response.status, 403);
+    assert.match((await response.json()).error, /verify your email/);
+  } finally { env.sqlite.close(); }
+});
+
+test('email-token routes fail closed before migration, while login still works', async () => {
+  const env = await createAuthEnv({ emailTokenHashes: false });
+  try {
+    for (const [path, method, body] of [
+      ['auth/register', 'POST', { username: 'newuser', email: 'new@example.com', password: env.password }],
+      ['auth/resend-verification', 'POST', { email: 'session@example.com' }],
+      ['auth/verify-email?token=legacy', 'GET', undefined],
+      ['auth/forgot-password', 'POST', { email: 'session@example.com' }],
+      ['auth/reset-password', 'POST', { token: 'legacy', password: env.password }],
+    ]) assert.equal((await call(env, path, { method, body, headers: webHeaders })).status, 503);
+    assert.equal((await login(env)).status, 200);
+    assert.equal(env.sqlite.prepare('SELECT COUNT(*) AS count FROM users').get().count, 1);
+  } finally { env.sqlite.close(); }
+});
+
+test('email-token migration clears old secrets without removing users or passwords', async () => {
+  const env = await createAuthEnv({ emailTokenHashes: false });
+  try {
+    for (const table of ['email_verification_tokens', 'password_reset_tokens']) {
+      env.sqlite.prepare(`INSERT INTO ${table} (user_id, token, expires_at) VALUES (1, ?, ?)`).run('old-secret', '2099-01-01');
+    }
+    env.sqlite.exec(readFileSync(new URL('../d1/migrations/0013_email_token_hashes.sql', import.meta.url), 'utf8'));
+    for (const table of ['email_verification_tokens', 'password_reset_tokens']) {
+      assert.equal(env.sqlite.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, 0);
+    }
+    assert.equal((await login(env)).status, 200);
+  } finally { env.sqlite.close(); }
+});
+
+test('new emails store only digests; database digests are unusable as reset/verification links', async () => {
+  const env = await createAuthEnv();
+  const originalFetch = globalThis.fetch;
+  const messages = [];
+  globalThis.fetch = async (url, options) => {
+    assert.match(String(url), /^https:\/\/api.cloudflare.com\//);
+    messages.push(JSON.stringify(JSON.parse(options.body)));
+    return Response.json({ success: true });
+  };
+  env.CLOUDFLARE_API_TOKEN = 'isolated-test';
+  env.CLOUDFLARE_ACCOUNT_ID = 'isolated-test';
+  try {
+    for (const [path, body, table] of [
+      ['auth/register', { username: 'newuser', email: 'new@example.com', password: env.password }, 'email_verification_tokens'],
+      ['auth/forgot-password', { email: 'session@example.com' }, 'password_reset_tokens'],
+      ['auth/resend-verification', { email: 'new@example.com' }, 'email_verification_tokens'],
+    ]) {
+      if (path.endsWith('resend-verification')) env.sqlite.exec("UPDATE email_verification_tokens SET created_at = datetime('now', '-2 minutes')");
+      const response = await call(env, path, { method: 'POST', headers: webHeaders, body });
+      assert.ok([200, 201].includes(response.status));
+      const token = messages.at(-1).match(/token=([a-f0-9]{64})/)[1];
+      const row = env.sqlite.prepare(`SELECT token, token_hash FROM ${table} WHERE token_hash = ?`).get(digest(token));
+      assert.equal(row.token, 'sha256:' + row.token_hash);
+      assert.notEqual(row.token_hash, token);
+      const use = (value) => table === 'email_verification_tokens'
+        ? call(env, `auth/verify-email?token=${value}`, { headers: webHeaders })
+        : call(env, 'auth/reset-password', { method: 'POST', headers: webHeaders, body: { token: value, password: 'replacement-password' } });
+      assert.equal((await use(row.token_hash)).status, 400);
+      assert.equal((await use(row.token)).status, 400);
+      assert.equal((await use(token)).status, 200);
+      assert.equal((await use(token)).status, 400);
+      if (table === 'email_verification_tokens') env.sqlite.exec("UPDATE users SET email_verified = 0 WHERE email = 'new@example.com'");
+    }
+  } finally { globalThis.fetch = originalFetch; env.sqlite.close(); }
+});
 
 test('web login issues a host-only, HttpOnly seven-day session without a JSON token', async () => {
   const env = await createAuthEnv();
@@ -121,13 +205,13 @@ test('verification and reset issue cookies, and reset revokes the previous sessi
   try {
     const expiry = new Date(Date.now() + 3600000).toISOString();
     env.sqlite.exec('UPDATE users SET email_verified = 0');
-    env.sqlite.prepare('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (1, ?, ?)').run('verification-test', expiry);
+    env.sqlite.prepare('INSERT INTO email_verification_tokens (user_id, token, token_hash, expires_at) VALUES (1, ?, ?, ?)').run('sha256:' + digest('verification-test'), digest('verification-test'), expiry);
     const verified = await call(env, 'auth/verify-email?token=verification-test', { headers: webHeaders });
     assert.equal(verified.status, 200);
     assert.equal((await verified.json()).token, undefined);
     const cookie = cookieFrom(verified);
     assert.equal((await call(env, 'auth/me', { headers: { Cookie: cookie } })).status, 200);
-    env.sqlite.prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (1, ?, ?)').run('reset-test', expiry);
+    env.sqlite.prepare('INSERT INTO password_reset_tokens (user_id, token, token_hash, expires_at) VALUES (1, ?, ?, ?)').run('sha256:' + digest('reset-test'), digest('reset-test'), expiry);
     const reset = await call(env, 'auth/reset-password', { method: 'POST', headers: webHeaders, body: { token: 'reset-test', password: 'reset-session-password' } });
     assert.equal(reset.status, 200);
     assert.equal((await reset.json()).token, undefined);

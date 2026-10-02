@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI, billingAPI } from '../api/api';
 import { X, KeyRound, Copy, Ban, Eye, EyeOff, Trash2, CreditCard, Zap, CheckCircle } from 'lucide-react';
 import Import from './Import';
+import Export from './Export';
 import { DEFAULT_LINK_TARGET, LINK_TARGET_ORDER, LINK_TARGET_LABELS } from '../utils/linkTarget';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Settings.css';
@@ -611,7 +612,7 @@ function Settings({
               setSuccess('');
             }}
           >
-            Import
+            Import / Export
           </button>
           {isSuperAdmin && (
             <button
@@ -1093,6 +1094,7 @@ function Settings({
               Import bookmarks from other services into Tagstash.
             </p>
             <Import inline onImportComplete={onImportComplete} />
+            <Export />
           </div>
         )}
 

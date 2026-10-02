@@ -68,7 +68,6 @@
 }
 
 .form-field input:focus {
-  outline: none;
   border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }

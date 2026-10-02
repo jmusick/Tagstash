@@ -1,3 +1,4 @@
+import Logo from './Logo'
 import { useEffect, useRef, useState } from 'react';
 import { supportAPI } from '../api/api';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
@@ -116,11 +117,11 @@ function SupportPage({ logoSrc, onBack, prefillEmail = '' }) {
   return (
     <div className="support-page">
       <header className="support-header">
-        {logoSrc && <img src={logoSrc} alt="Tagstash" className="support-logo" />}
+        {logoSrc && <Logo src={logoSrc} className="support-logo" />}
         <h1>Contact Support</h1>
       </header>
 
-      <main className="support-content">
+      <main id="main" tabIndex={-1} className="support-content">
         <p className="support-intro">
           Use this form to reach the Tagstash support team.
         </p>

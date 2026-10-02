@@ -534,7 +534,6 @@
 }
 
 .search-control input:focus {
-  outline: none;
 }
 
 .search-filter-chip {
@@ -729,7 +728,6 @@
 
 .sort-control select:focus,
 .pagination-page-size select:focus {
-  outline: none;
   border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
@@ -1044,7 +1042,6 @@ a.btn-field-action,
 
 .form-group input:focus,
 .form-group textarea:focus {
-  outline: none;
   border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
@@ -1085,7 +1082,6 @@ a.btn-field-action,
 }
 
 .tag-input-shell input:focus {
-  outline: none;
   box-shadow: none;
 }
 

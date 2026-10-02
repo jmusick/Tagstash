@@ -67,9 +67,7 @@
   color: var(--color-placeholder);
 }
 
-.tag-cloud-search input:focus {
-  outline: none;
-}
+.tag-cloud-search input:focus {}
 
 .tag-cloud-search-clear {
   border: none;

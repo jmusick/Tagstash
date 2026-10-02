@@ -77,9 +77,7 @@
   font-family: inherit;
 }
 
-.import-source-picker select:focus {
-  outline: none;
-  border-color: var(--color-primary-strong);
+.import-source-picker select:focus {  border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 

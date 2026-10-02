@@ -1,3 +1,4 @@
+import Logo from './Logo'
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './PolicyPage.css';
 
@@ -13,7 +14,7 @@ function PolicyPage({ logoSrc, onBack }) {
       <header className="privacy-header">
         {logoSrc && (
           <button type="button" className="privacy-logo-btn" onClick={onBack} title="Back to Tagstash">
-            <img src={logoSrc} alt="Tagstash" className="privacy-logo" />
+            <Logo src={logoSrc} className="privacy-logo" />
           </button>
         )}
         <h1>Privacy Policy</h1>
@@ -22,7 +23,7 @@ function PolicyPage({ logoSrc, onBack }) {
         </button>
       </header>
 
-      <main className="privacy-content">
+      <main id="main" tabIndex={-1} className="privacy-content">
         <p className="privacy-effective">Effective date: September 23, 2026</p>
 
         <section>

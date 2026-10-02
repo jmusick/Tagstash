@@ -213,8 +213,31 @@ h4 {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-primary-strong);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-primary-strong);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10000;
+  padding: 0.65rem 1rem;
+  border-radius: 0.4rem;
+  background: var(--color-panel);
+  color: var(--color-text);
+  transform: translateY(-200%);
+  clip-path: inset(100%);
+}
+
+.skip-link:focus {
+  transform: none;
+  clip-path: none;
+}
+
+/* Skip targets receive programmatic focus without outlining the whole page. */
+main[tabindex='-1']:focus {
+  outline: none;
 }
 
 ::selection {
@@ -227,7 +250,8 @@ h4 {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: opacity !important;
+    transition-duration: 0.15s !important;
     scroll-behavior: auto !important;
   }
 }
@@ -354,9 +378,7 @@ button.tag-stock,
   background: rgba(var(--color-accent-rgb), 0.14);
 }
 
-.theme-selector-btn:focus-visible {
-  outline: none;
-}
+.theme-selector-btn:focus-visible {}
 
 .theme-selector-label {
   max-width: 0;
@@ -371,3 +393,5 @@ button.tag-stock,
   margin-left: 0.5rem;
   opacity: 1;
 }
+
+.logo-picture { display: contents; }

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 
-export const DEFAULT_TITLE = 'Tagstash - Tag-Based Bookmarking'
-export const DEFAULT_DESCRIPTION = 'Tag-first bookmarking for people who outgrow folders fast. Save, organize, and share your bookmarks with Tagstash.'
+export const DEFAULT_TITLE = 'Tagstash - Tag-Based Bookmark Manager'
+export const DEFAULT_DESCRIPTION = 'A tag-based bookmark manager for saving links, organizing bookmarks, and sharing a public profile. Free for your first 50 bookmarks.'
 
 function upsertMeta(attr, key, content) {
   let el = document.head.querySelector(`meta[${attr}="${key}"]`)

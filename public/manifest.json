@@ -1,12 +1,21 @@
 {
-  "name": "Tagstash - Tag-Based Bookmarking",
+  "name": "Tagstash - Tag-Based Bookmark Manager",
   "short_name": "Tagstash",
-  "description": "Tag-first bookmarking for people who outgrow folders fast.",
+  "description": "A tag-based bookmark manager for saving links and organizing bookmarks.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#6d45ff",
   "icons": [
-    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }

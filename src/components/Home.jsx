@@ -1,4 +1,6 @@
+import Logo from './Logo'
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/api';
 import ThemeSelector from './ThemeSelector';
@@ -7,10 +9,10 @@ import { version } from '../../package.json';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import './Home.css';
 
-function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
+function Home({ logoSrc, theme, onSelectTheme }) {
   useDocumentMeta({
-    title: 'Tagstash - Tag-Based Bookmarking',
-    description: 'Tag-first bookmarking for people who outgrow folders fast. Save, organize, and share your bookmarks with Tagstash.',
+    title: 'Tagstash - Tag-Based Bookmark Manager',
+    description: 'A tag-based bookmark manager for saving links, organizing bookmarks, and sharing a public profile. Free for your first 50 bookmarks.',
     path: '/',
   });
 
@@ -164,10 +166,10 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
-          <img src={logoSrc} alt="Tagstash" className="home-logo" />
+          <Logo src={logoSrc} className="home-logo" />
           <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
-        <div className="home-centered-content">
+        <main id="main" tabIndex={-1} className="home-centered-content">
           <div className="auth-card">
             {forgotStatus === 'sent' ? (
               <>
@@ -218,7 +220,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
               </>
             )}
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -227,10 +229,10 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
     return (
       <div className="home-container home-container--centered">
         <div className="home-topbar">
-          <img src={logoSrc} alt="Tagstash" className="home-logo" />
+          <Logo src={logoSrc} className="home-logo" />
           <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
         </div>
-        <div className="home-centered-content">
+        <main id="main" tabIndex={-1} className="home-centered-content">
           <div className="auth-card">
             <h2 className="auth-card-title">Check your email</h2>
             <p className="auth-description">
@@ -248,7 +250,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
               </button>
             </div>
           </div>
-          </div>
+        </main>
       </div>
     );
   }
@@ -256,16 +258,17 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
   return (
     <div className="home-container">
       <div className="home-topbar">
-        <img src={logoSrc} alt="Tagstash" className="home-logo" />
+        <Logo src={logoSrc} className="home-logo" />
         <ThemeSelector theme={theme} onSelectTheme={onSelectTheme} className="home-theme-toggle" size={18} />
       </div>
 
+      <main id="main" tabIndex={-1}>
       <section className="hero-section">
         <div className="hero-content">
-          <h1 className="sr-only">Tagstash - Tag-Based Bookmarking</h1>
+          <h1 className="sr-only">Tagstash - Tag-Based Bookmark Manager</h1>
           <p className="hero-headline">Tag-first bookmarking for people who outgrow folders fast.</p>
           <p className="hero-lede">
-            Save a link once, give it every tag that fits, and find it again from any of them.
+            Save links in a bookmark manager built around tags. Give each link every tag that fits, and find it again from any of them.
             Free for your first 50 bookmarks.
           </p>
         </div>
@@ -426,6 +429,7 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
         </dl>
       </section>
 
+      </main>
       <footer className="home-footer">
         <span className="home-footer-copyright">
           &copy; {new Date().getFullYear()}{' '}
@@ -433,8 +437,8 @@ function Home({ logoSrc, theme, onSelectTheme, onNavigate }) {
             Stone Dragon Media LLC
           </a>
         </span>
-        <button className="home-footer-privacy-link" onClick={() => onNavigate('privacy')}>Privacy Policy</button>
-        <button className="home-footer-privacy-link" onClick={() => onNavigate('support')}>Support</button>
+        <Link className="home-footer-privacy-link" to="/privacy">Privacy Policy</Link>
+        <Link className="home-footer-privacy-link" to="/support">Support</Link>
         <button className="home-footer-privacy-link" data-cookie-preferences>Cookie Choices</button>
         <span className="version">v{version}</span>
       </footer>

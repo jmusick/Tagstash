@@ -69,7 +69,7 @@ function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
     return (
       <div className="app">
         <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onSelectTheme={onSelectTheme} />
-        <main className="app-main">
+        <main id="main" tabIndex={-1} className="app-main">
           <div className="main-content">
             {loading ? (
               <div className="loading-message">Loading profile...</div>
@@ -94,7 +94,7 @@ function PublicProfile({ logoSrc, theme, onSelectTheme, linkTarget }) {
   return (
     <div className="app">
       <AppHeader logoSrc={logoSrc} tagline="Public bookmarks" theme={theme} onSelectTheme={onSelectTheme} />
-      <main className="app-main">
+      <main id="main" tabIndex={-1} className="app-main">
         <BookmarkBrowser
           bookmarks={bookmarks}
           loading={false}

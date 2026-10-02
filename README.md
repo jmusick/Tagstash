@@ -24,6 +24,7 @@ Current status at a glance:
 ## Features
 
 - Tag-first bookmark organization
+- Export your entire library from Settings → Import / Export as Netscape HTML, CSV, or JSON, including private bookmarks. JSON preserves dates, tags, favorites, and privacy settings; HTML/CSV support migration to other tools. HTML imports also read exported tags and descriptions.
 - Bookmark title, URL, description, and tag management
 - Base URL keeps the site root with a trailing slash (for example, `https://www.google.com/`); Trim URL removes queries and fragments
 - Search, sorting, and tag query filtering (click any tag on a bookmark or in the tag panel to filter by it; combine tags to narrow results)
@@ -46,6 +47,7 @@ Current status at a glance:
 - Personal API keys (Settings) can be generated and revoked; they are not yet accepted as an authentication method by the API
 - Brute-force protection: 8 failed logins lock an account for 15 minutes, with per-IP/per-email throttling of login, sign-up, verification resends and password-reset requests; auth events are logged for super admins in Settings → Admin
 - Security response headers (CSP, HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) and immutable caching for hashed assets, served via `public/_headers`
+- Reset and verification links are stored as SHA-256 digests, and unverified-account guidance is shown only after a correct password. Keyboard focus outlines, skip links, and reduced-motion support cover the main app and public pages.
 - Dynamic XML sitemap (`/sitemap.xml`) listing static pages and opted-in public profiles, plus `robots.txt` and `llms.txt`, for search engine and AI crawler discovery
 
 ## Hosted Version

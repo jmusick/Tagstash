@@ -158,7 +158,12 @@ function parseBrowserBookmarksHTML(html) {
       .map((f) => f.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
       .filter((t) => t.length > 0);
 
-    bookmarks.push({ title, url, description: null, tags: [...new Set(tags)] });
+    // Tag-aware Netscape exports (including Tagstash) also carry TAGS and a DD note.
+    const exportedTags = (a.getAttribute('tags') || '').split(',')
+      .map((tag) => tag.trim().toLowerCase().replace(/\s+/g, '-')).filter(Boolean);
+    const note = a.closest('dt')?.nextElementSibling;
+    const description = note?.tagName === 'DD' ? note.textContent.trim() || null : null;
+    bookmarks.push({ title, url, description, tags: [...new Set([...tags, ...exportedTags])] });
   });
 
   return bookmarks;

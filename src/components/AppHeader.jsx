@@ -1,3 +1,4 @@
+import Logo from './Logo'
 import { useState, Children } from 'react'
 import { Menu, X } from 'lucide-react'
 import ThemeSelector from './ThemeSelector'
@@ -11,11 +12,11 @@ function AppHeader({ logoSrc, tagline, onLogoClick, theme, onSelectTheme, childr
       <div className="app-header-brand">
         {onLogoClick ? (
           <button type="button" className="app-header-logo-btn" onClick={onLogoClick} title="Back to bookmarks">
-            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+            <Logo src={logoSrc} className="app-header-logo" />
           </button>
         ) : (
           <a href="/" className="app-header-logo-btn" title="Back to Tagstash">
-            <img src={logoSrc} alt="Tagstash" className="app-header-logo" />
+            <Logo src={logoSrc} className="app-header-logo" />
           </a>
         )}
         {tagline && <p className="app-header-tagline">{tagline}</p>}

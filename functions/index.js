@@ -76,7 +76,7 @@ export async function onRequestGet({ request, next }) {
     '@type': 'SoftwareApplication',
     name: 'Tagstash',
     url: `${origin}/`,
-    description: 'Tag-first bookmarking for people who outgrow folders fast. Save, organize, and share your bookmarks with Tagstash.',
+    description: 'A tag-based bookmark manager for saving links, organizing bookmarks, and sharing a public profile. Free for your first 50 bookmarks.',
     applicationCategory: 'Bookmark Manager',
     operatingSystem: 'Web, Chrome, Firefox',
     offers: [
@@ -86,9 +86,18 @@ export async function onRequestGet({ request, next }) {
     ],
   };
 
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Stone Dragon Media LLC',
+    url: 'https://stonedragonmedia.com/',
+    brand: { '@type': 'Brand', name: 'Tagstash', url: origin + '/', logo: origin + '/icon-512.png' },
+  };
+
   const headHtml = `
 <script type="application/ld+json">${JSON.stringify(softwareJsonLd)}</script>
 <script type="application/ld+json">${JSON.stringify(faqJsonLd)}</script>
+<script type="application/ld+json">${JSON.stringify(organizationJsonLd)}</script>
 `;
 
   const featuresHtml = FEATURES.map(
@@ -103,9 +112,9 @@ export async function onRequestGet({ request, next }) {
 <div class="home-container">
   <section class="hero-section">
     <div class="hero-content">
-      <h1 class="sr-only">Tagstash - Tag-Based Bookmarking</h1>
+      <h1 class="sr-only">Tagstash - Tag-Based Bookmark Manager</h1>
       <p class="hero-headline">Tag-first bookmarking for people who outgrow folders fast.</p>
-      <p class="hero-lede">Save a link once, give it every tag that fits, and find it again from any of them. Free for your first 50 bookmarks.</p>
+      <p class="hero-lede">Save links in a bookmark manager built around tags. Give each link every tag that fits, and find it again from any of them. Free for your first 50 bookmarks.</p>
     </div>
   </section>
   <section class="features-section">

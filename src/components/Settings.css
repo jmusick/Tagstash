@@ -147,9 +147,7 @@
   color: var(--color-placeholder);
 }
 
-.form-field input:focus {
-  outline: none;
-  border-color: var(--color-primary-strong);
+.form-field input:focus {  border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 
@@ -501,9 +499,7 @@
   color: var(--color-placeholder);
 }
 
-.admin-users-search:focus {
-  outline: none;
-  border-color: var(--color-primary-strong);
+.admin-users-search:focus {  border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 
@@ -752,4 +748,14 @@
   margin: 0;
   font-size: 0.88rem;
   opacity: 0.6;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.settings-import-tab section {
+  margin-top: 2rem;
 }

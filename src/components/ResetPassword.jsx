@@ -1,3 +1,4 @@
+import Logo from './Logo'
 import { useState } from 'react';
 import { authAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -43,10 +44,10 @@ function ResetPassword({ logoSrc }) {
   };
 
   return (
-    <div className="auth-container">
+    <main id="main" tabIndex={-1} className="auth-container">
       <div className="auth-card">
         <h1 className="auth-title">
-          <img src={logoSrc} alt="Tagstash" className="auth-title-logo" />
+          <Logo src={logoSrc} className="auth-title-logo" />
         </h1>
 
         {!token ? (
@@ -102,7 +103,7 @@ function ResetPassword({ logoSrc }) {
           </>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -65,9 +65,7 @@
 }
 
 .support-field input:focus,
-.support-field textarea:focus {
-  outline: none;
-  border-color: var(--color-primary-strong);
+.support-field textarea:focus {  border-color: var(--color-primary-strong);
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.18);
 }
 

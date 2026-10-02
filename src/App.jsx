@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
-import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
+import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import { version } from '../package.json'
 import './App.css'
 import { useAuth } from './context/AuthContext'
@@ -17,6 +17,7 @@ const ConsentBanner = lazy(() =>
   import('./components/ConsentBanner').catch(() => ({ default: () => null }))
 )
 
+const NotFound = lazy(() => import('./components/NotFound'))
 const Settings = lazy(() => import('./components/Settings'))
 const TagsPage = lazy(() => import('./components/TagsPage'))
 const PolicyPage = lazy(() => import('./components/PolicyPage'))
@@ -954,6 +955,7 @@ function App() {
 
   return (
     <>
+    <a className="skip-link" href="#main">Skip to content</a>
     <Suspense fallback={<div className="loading-container"><p>Loading...</p></div>}>
       <Routes>
         <Route path="/verify-email" element={<VerifyEmail logoSrc={logoSrc} />} />
@@ -978,7 +980,7 @@ function App() {
                   {renderHeaderNav('settings')}
                 </AppHeader>
 
-                <main className="app-main settings-page-main">
+                <main id="main" tabIndex={-1} className="app-main settings-page-main">
                   <div className="main-content settings-page-content">
                     <Settings
                       pageMode
@@ -1011,7 +1013,7 @@ function App() {
                   {renderHeaderNav('tags')}
                 </AppHeader>
 
-                <main className="app-main settings-page-main">
+                <main id="main" tabIndex={-1} className="app-main settings-page-main">
                   <div className="main-content settings-page-content">
                     <TagsPage />
                   </div>
@@ -1039,7 +1041,7 @@ function App() {
                   {renderHeaderNav('bookmarks')}
                 </AppHeader>
 
-                <main className="app-main">
+                <main id="main" tabIndex={-1} className="app-main">
                   <BookmarkBrowser
                     key={browserResetKey}
                     bookmarks={bookmarks}
@@ -1284,7 +1286,7 @@ function App() {
             ) : homeElement
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound logoSrc={logoSrc} theme={theme} onSelectTheme={selectTheme} />} />
       </Routes>
     </Suspense>
     <Suspense fallback={null}>

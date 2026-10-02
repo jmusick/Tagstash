@@ -34,7 +34,7 @@ export async function onRequestGet({ request, env, params, next }) {
   const origin = new URL(request.url).origin;
   const rawUsername = decodeURIComponent(params.username || '');
   const pageUrl = `${origin}/u/${encodeURIComponent(rawUsername)}`;
-  const imageUrl = `${origin}/logo-dark.png`;
+  const imageUrl = `${origin}/og-image.jpg`;
 
   let title = 'Profile Not Found - Tagstash';
   let description = "This profile doesn't exist or isn't public.";

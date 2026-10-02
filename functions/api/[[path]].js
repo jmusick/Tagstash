@@ -436,6 +436,20 @@ const hashApiKey = async (value) => {
   return toHex(new Uint8Array(digest));
 };
 
+// Cost 10 matches registration. Missing accounts must still do password hashing work.
+const DUMMY_PASSWORD_HASH = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+
+const emailTokenStorageReady = async (db, table) => {
+  const result = await db.prepare(`PRAGMA table_info(${table})`).all();
+  return (result.results || []).some((column) => column.name === 'token_hash');
+};
+
+const storeEmailToken = async (db, table, userId, token, expiresAt) => {
+  const tokenHash = await hashApiKey(token);
+  await db.prepare(`INSERT INTO ${table} (user_id, token, token_hash, expires_at) VALUES (?, ?, ?, ?)`)
+    .bind(userId, `sha256:${tokenHash}`, tokenHash, expiresAt).run();
+};
+
 const encryptApiKey = async (value, env) => {
   const key = await getApiKeyAesKey(env);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -1166,6 +1180,10 @@ async function handleAuth(request, env, segments) {
   const db = env.DB;
 
   if (request.method === 'POST' && segments[1] === 'register') {
+    if (!(await emailTokenStorageReady(db, 'email_verification_tokens'))) {
+      return jsonResponse({ error: 'Email authentication is temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const { username, email, password } = await parseBody(request);
     const trimmedUsername = typeof username === 'string' ? username.trim() : '';
     const normalizedEmail = normalizeEmail(email);
@@ -1213,10 +1231,7 @@ async function handleAuth(request, env, segments) {
     // Generate and store verification token (expires in 24 hours)
     const verificationToken = generateVerificationToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    await db
-      .prepare('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .bind(userId, verificationToken, expiresAt)
-      .run();
+    await storeEmailToken(db, 'email_verification_tokens', userId, verificationToken, expiresAt);
 
     try {
       await sendVerificationEmail(normalizedEmail, trimmedUsername, verificationToken, env);
@@ -1254,6 +1269,7 @@ async function handleAuth(request, env, segments) {
       .first();
 
     if (!user) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
       await recordAuthEvent(db, request, 'login_failed', { email: normalizedEmail });
       return jsonResponse({ error: 'Invalid email or password' }, 401);
     }
@@ -1264,12 +1280,6 @@ async function handleAuth(request, env, segments) {
       await recordAuthEvent(db, request, 'login_rejected_locked', { email: normalizedEmail, userId: user.id });
       return rateLimitedResponse(lockedOutMessage(lockedUntil));
     }
-
-    if (!user.email_verified) {
-      return jsonResponse({ error: 'Please verify your email address before logging in.' }, 403);
-    }
-
-    await ensureUserRoleMatchesConfig(db, user, env);
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
@@ -1282,6 +1292,11 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Invalid email or password' }, 401);
     }
 
+    if (!user.email_verified) {
+      return jsonResponse({ error: 'Please verify your email address before logging in.' }, 403);
+    }
+
+    await ensureUserRoleMatchesConfig(db, user, env);
     await clearLoginLockout(db, user);
 
     const lastLoginAt = new Date().toISOString();
@@ -1317,6 +1332,10 @@ async function handleAuth(request, env, segments) {
   }
 
   if (request.method === 'GET' && segments[1] === 'verify-email') {
+    if (!(await emailTokenStorageReady(db, 'email_verification_tokens'))) {
+      return jsonResponse({ error: 'Email authentication is temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const token = new URL(request.url).searchParams.get('token');
     if (!token) {
       return jsonResponse({ error: 'Verification token is required' }, 400);
@@ -1326,9 +1345,9 @@ async function handleAuth(request, env, segments) {
       .prepare(
         `SELECT evt.id, evt.user_id, evt.expires_at, evt.used_at
          FROM email_verification_tokens evt
-         WHERE evt.token = ?`
+         WHERE evt.token_hash = ?`
       )
-      .bind(token)
+      .bind(await hashApiKey(token))
       .first();
 
     if (!record) {
@@ -1375,6 +1394,10 @@ async function handleAuth(request, env, segments) {
   }
 
   if (request.method === 'POST' && segments[1] === 'resend-verification') {
+    if (!(await emailTokenStorageReady(db, 'email_verification_tokens'))) {
+      return jsonResponse({ error: 'Email authentication is temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const { email } = await parseBody(request);
     const normalizedEmail = normalizeEmail(email);
 
@@ -1418,10 +1441,7 @@ async function handleAuth(request, env, segments) {
 
     const verificationToken = generateVerificationToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    await db
-      .prepare('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .bind(unverifiedUser.id, verificationToken, expiresAt)
-      .run();
+    await storeEmailToken(db, 'email_verification_tokens', unverifiedUser.id, verificationToken, expiresAt);
 
     await sendVerificationEmail(normalizedEmail, unverifiedUser.username, verificationToken, env);
 
@@ -1973,6 +1993,10 @@ async function handleAuth(request, env, segments) {
   }
 
   if (request.method === 'POST' && segments[1] === 'forgot-password') {
+    if (!(await emailTokenStorageReady(db, 'password_reset_tokens'))) {
+      return jsonResponse({ error: 'Email authentication is temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const { email } = await parseBody(request);
     const normalizedEmail = normalizeEmail(email);
 
@@ -2039,10 +2063,7 @@ async function handleAuth(request, env, segments) {
     const resetToken = generateVerificationToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-    await db
-      .prepare('INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .bind(user.id, resetToken, expiresAt)
-      .run();
+    await storeEmailToken(db, 'password_reset_tokens', user.id, resetToken, expiresAt);
 
     console.log('[forgot-password] token inserted, sending email...');
 
@@ -2058,6 +2079,10 @@ async function handleAuth(request, env, segments) {
   }
 
   if (request.method === 'POST' && segments[1] === 'reset-password') {
+    if (!(await emailTokenStorageReady(db, 'password_reset_tokens'))) {
+      return jsonResponse({ error: 'Email authentication is temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const { token, password } = await parseBody(request);
 
     if (!token || !password) {
@@ -2072,9 +2097,9 @@ async function handleAuth(request, env, segments) {
       .prepare(
         `SELECT prt.id, prt.user_id, prt.expires_at, prt.used_at
          FROM password_reset_tokens prt
-         WHERE prt.token = ?`
+         WHERE prt.token_hash = ?`
       )
-      .bind(token)
+      .bind(await hashApiKey(token))
       .first();
 
     if (!record) {

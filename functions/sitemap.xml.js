@@ -1,8 +1,9 @@
 // Dynamic XML sitemap: static marketing pages + all public profile URLs.
 const STATIC_PATHS = [
-  { path: '/', changefreq: 'daily', priority: '1.0' },
-  { path: '/privacy', changefreq: 'yearly', priority: '0.3' },
-  { path: '/support', changefreq: 'monthly', priority: '0.3' },
+  // Content-change dates; update these when editing a page's substantive content.
+  { path: '/', lastmod: '2026-10-02' },
+  { path: '/privacy', lastmod: '2026-09-23' },
+  { path: '/support', lastmod: '2026-08-17' },
 ];
 
 const usersTableHasColumn = async (db, columnName) => {
@@ -24,8 +25,8 @@ export async function onRequestGet({ request, env }) {
   const db = env.DB;
 
   const urlEntries = STATIC_PATHS.map(
-    ({ path, changefreq, priority }) =>
-      `<url><loc>${xmlEscape(origin + path)}</loc><changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`
+    ({ path, lastmod }) =>
+      `<url><loc>${xmlEscape(origin + path)}</loc><lastmod>${lastmod}</lastmod></url>`
   );
 
   if (db && (await usersTableHasColumn(db, 'profile_public'))) {
