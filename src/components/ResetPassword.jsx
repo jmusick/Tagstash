@@ -32,8 +32,7 @@ function ResetPassword({ logoSrc }) {
     setMessage('');
 
     try {
-      const response = await authAPI.resetPassword(token, password);
-      localStorage.setItem('token', response.data.token);
+      await authAPI.resetPassword(token, password);
       await refreshCurrentUser();
       setStatus('success');
       setTimeout(() => window.location.assign('/'), 800);

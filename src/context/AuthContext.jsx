@@ -19,24 +19,26 @@ export const AuthProvider = ({ children }) => {
 
   const refreshCurrentUser = useCallback(async () => {
     const response = await authAPI.getCurrentUser();
+    localStorage.removeItem('token');
     setUser(response.data.user);
     return response.data.user;
   }, []);
 
   useEffect(() => {
-    // Check if user is already  logged in
-    const token = localStorage.getItem('token');
-    if (token) {
-      refreshCurrentUser()
-        .catch(() => {
-          localStorage.removeItem('token');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+    const restoreSession = async () => {
+      const legacyToken = localStorage.getItem('token');
+      if (legacyToken) {
+        try {
+          await authAPI.upgradeSession(legacyToken);
+        } catch (err) {
+          // Keep it for a later upgrade if the server is temporarily unreachable.
+          if (![401, 403].includes(err.response?.status)) throw err;
+        }
+        localStorage.removeItem('token');
+      }
+      await refreshCurrentUser();
+    };
+    restoreSession().catch(() => {}).finally(() => setLoading(false));
   }, [refreshCurrentUser]);
 
   const describeAuthError = (err, fallback) => {
@@ -54,7 +56,7 @@ export const AuthProvider = ({ children }) => {
       if (response.data.pendingVerification) {
         return { success: true, pendingVerification: true };
       }
-      localStorage.setItem('token', response.data.token);
+      localStorage.removeItem('token');
       setUser(response.data.user);
       return { success: true };
     } catch (err) {
@@ -68,7 +70,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await authAPI.login(email, password);
-      localStorage.setItem('token', response.data.token);
+      localStorage.removeItem('token');
       setUser(response.data.user);
       return { success: true };
     } catch (err) {
@@ -78,7 +80,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Only clear UI state once the server has removed the HttpOnly cookie.
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      setError(describeAuthError(err, 'Sign out failed. Please try again.'));
+      return;
+    }
     localStorage.removeItem('token');
     setUser(null);
   };
@@ -99,5 +108,10 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!user,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {user && error && <div className="error-message" role="alert">{error}</div>}
+      {children}
+    </AuthContext.Provider>
+  );
 };

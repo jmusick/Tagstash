@@ -44,6 +44,53 @@ const isAllowedOrigin = (origin, env) => {
   }
 };
 
+const WEB_SESSION_SECONDS = 7 * 24 * 60 * 60;
+const isWebClient = (request) => request.headers.get('X-Tagstash-Client') === 'web';
+const isLocalRequest = (request) => {
+  const url = new URL(request.url);
+  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+};
+const sessionCookieName = (request) => isLocalRequest(request) ? 'tagstash-session' : '__Host-tagstash-session';
+const getSessionCookie = (request) => {
+  const name = `${sessionCookieName(request)}=`;
+  return (request.headers.get('Cookie') || '').split(';').map((part) => part.trim())
+    .find((part) => part.startsWith(name))?.slice(name.length) || null;
+};
+const sessionCookie = (request, token, maxAge = WEB_SESSION_SECONDS) =>
+  `${sessionCookieName(request)}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isLocalRequest(request) ? '' : '; Secure'}`;
+
+// Only the web origin can use credentialed CORS. Extension origins keep bearer auth.
+const isWebOrigin = (origin, request, env) => {
+  if (!origin || origin === 'null') return false;
+  if (origin === new URL(request.url).origin) return true;
+  if (isLocalRequest(request) && ['http://localhost:3000', 'http://localhost:5173'].includes(origin)) return true;
+  if (!env.APP_URL) return false;
+  try {
+    return origin === new URL(env.APP_URL).origin;
+  } catch {
+    return false;
+  }
+};
+const hasWebRequestProof = (request, env) => {
+  if (!isWebClient(request)) return false;
+  const origin = request.headers.get('Origin');
+  if (origin) return isWebOrigin(origin, request, env);
+  const referer = request.headers.get('Referer');
+  if (referer) {
+    try { return isWebOrigin(new URL(referer).origin, request, env); } catch { return false; }
+  }
+  return request.headers.get('Sec-Fetch-Site') === 'same-origin';
+};
+
+const sessionResponse = (request, data) => {
+  if (!isWebClient(request)) return jsonResponse(data);
+  const { token, ...body } = data;
+  const response = jsonResponse(body);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Set-Cookie', sessionCookie(request, token));
+  return response;
+};
+
 // /api/profiles/* is the unauthenticated, GET-only public profile API that
 // third-party sites fetch directly, so it keeps the wildcard.
 const corsHeadersFor = (request, env) => {
@@ -54,8 +101,9 @@ const corsHeadersFor = (request, env) => {
   else if (isAllowedOrigin(origin, env)) allowOrigin = origin;
   return {
     ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
+    ...(!isPublicApi && isWebOrigin(origin, request, env) ? { 'Access-Control-Allow-Credentials': 'true' } : {}),
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Tagstash-Webhook-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Tagstash-Client, X-Tagstash-Webhook-Secret',
     Vary: 'Origin',
   };
 };
@@ -482,14 +530,17 @@ const getBearerToken = (request) => {
 };
 
 const requireAuth = async (request, env) => {
-  const token = getBearerToken(request);
+  const bearerToken = getBearerToken(request);
+  const token = bearerToken || getSessionCookie(request);
   if (!token) {
     return { error: jsonResponse({ error: 'Access token required' }, 401) };
   }
 
   let payload;
   try {
-    ({ payload } = await jwtVerify(token, getJwtSecret(env)));
+    ({ payload } = await jwtVerify(token, getJwtSecret(env), { algorithms: ['HS256'] }));
+    // A web session is only valid as an HttpOnly cookie; legacy/extension JWTs only as bearer tokens.
+    if (bearerToken ? payload.session === 'web' : payload.session !== 'web') throw new Error('Wrong token type');
   } catch {
     return { error: jsonResponse({ error: 'Invalid or expired token' }, 403) };
   }
@@ -514,7 +565,7 @@ const requireAuth = async (request, env) => {
   };
 };
 
-const signUserToken = async (user, env) => {
+const signUserToken = async (user, env, request) => {
   // Read token_version fresh rather than trusting the caller's row, so a token signed right
   // after bumpTokenVersion carries the new version. SELECT * for the same pre-migration
   // reason as requireAuth.
@@ -526,10 +577,11 @@ const signUserToken = async (user, env) => {
     role: user.role,
     membershipTier: user.membership_tier,
     tv: Number(versionRow?.token_version || 0),
+    ...(request && isWebClient(request) ? { session: 'web' } : {}),
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('60d')
+    .setExpirationTime(request && isWebClient(request) ? `${WEB_SESSION_SECONDS}s` : '60d')
     .sign(getJwtSecret(env));
 };
 
@@ -1096,6 +1148,21 @@ const processStripeEvent = async (db, event) => {
 };
 
 async function handleAuth(request, env, segments) {
+  if (request.method === 'POST' && segments[1] === 'session') {
+    // Upgrade a pre-cookie web login. Never return the replacement token to JS.
+    if (!isWebClient(request) || !getBearerToken(request)) {
+      return jsonResponse({ error: 'Existing bearer session required' }, 400);
+    }
+    const auth = await requireAuth(request, env);
+    if (auth.error) return auth.error;
+    const token = await signUserToken(auth.user, env, request);
+    return sessionResponse(request, { message: 'Session upgraded', token });
+  }
+  if (request.method === 'POST' && segments[1] === 'logout') {
+    const response = jsonResponse({ message: 'Signed out' });
+    response.headers.set('Set-Cookie', sessionCookie(request, '', 0));
+    return response;
+  }
   const db = env.DB;
 
   if (request.method === 'POST' && segments[1] === 'register') {
@@ -1230,9 +1297,9 @@ async function handleAuth(request, env, segments) {
       await updateQuery.bind(user.id).run();
     }
 
-    const token = await signUserToken(user, env);
+    const token = await signUserToken(user, env, request);
 
-    return jsonResponse({
+    return sessionResponse(request, {
       message: 'Login successful',
       token,
       user: {
@@ -1298,9 +1365,9 @@ async function handleAuth(request, env, segments) {
 
     verifiedUser.profile_public = Number(verifiedUser.profile_public || 0);
 
-    const authToken = await signUserToken(verifiedUser, env);
+    const authToken = await signUserToken(verifiedUser, env, request);
 
-    return jsonResponse({
+    return sessionResponse(request, {
       message: 'Email verified successfully.',
       token: authToken,
       user: verifiedUser,
@@ -1535,9 +1602,9 @@ async function handleAuth(request, env, segments) {
 
     // Sign out every other session (including a stolen token), but keep this one alive.
     await bumpTokenVersion(db, auth.user.id);
-    const token = await signUserToken(auth.user, env);
+    const token = await signUserToken(auth.user, env, request);
 
-    return jsonResponse({ message: 'Password updated successfully', token });
+    return sessionResponse(request, { message: 'Password updated successfully', token });
   }
 
   if (request.method === 'PUT' && segments[1] === 'profile-public') {
@@ -2049,9 +2116,9 @@ async function handleAuth(request, env, segments) {
       .bind(record.user_id)
       .first();
 
-    const authToken = await signUserToken(updatedUser, env);
+    const authToken = await signUserToken(updatedUser, env, request);
 
-    return jsonResponse({
+    return sessionResponse(request, {
       message: 'Password reset successfully.',
       token: authToken,
       user: updatedUser,
@@ -2955,7 +3022,18 @@ export const onRequestOptions = async ({ request, env }) =>
   new Response(null, { status: 204, headers: corsHeadersFor(request, env) });
 
 export async function onRequest(context) {
-  return withCors(await routeRequest(context), context.request, context.env);
+  const { request, env } = context;
+  const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+  const webhook = new URL(request.url).pathname === '/api/billing/webhook';
+  // A custom header + verified web origin prevents form and cross-origin login CSRF.
+  // Explicit bearer requests never authenticate through cookies. Stripe verifies its signature.
+  const needsProof = isWebClient(request) ||
+    (unsafe && !webhook && !getBearerToken(request) && !!getSessionCookie(request));
+  const response = needsProof && !hasWebRequestProof(request, env)
+    ? jsonResponse({ error: 'Invalid web request origin' }, 403)
+    : await routeRequest(context);
+  response.headers.set('Cache-Control', 'no-store');
+  return withCors(response, request, env);
 }
 
 async function routeRequest(context) {

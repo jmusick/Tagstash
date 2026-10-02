@@ -166,8 +166,31 @@ Production setup includes:
 
 ### Auth
 
+The web app uses a seven-day JWT session in a host-only `HttpOnly; Secure; SameSite=Lax`
+cookie (`__Host-tagstash-session`). It sends `X-Tagstash-Client: web` and credentials on
+API requests; session-issuing responses set the cookie and omit the token from JSON.
+Web requests require a trusted Origin (or Referer / same-origin Fetch Metadata fallback),
+and cookie-authenticated mutations require the custom header as CSRF protection.
+Set `APP_URL` to your web app origin when serving the API separately. Cross-site cookie
+deployments are not supported by `SameSite=Lax`; use the same origin or same site.
+Plain HTTP loopback development uses `tagstash-session` without `Secure`.
+
+The browser extension and other bearer clients retain the existing 60-day JWT flow:
+omit the web-client header on login and send the returned token as `Authorization: Bearer`.
+Personal API keys are still not an authentication path. Web cookie tokens cannot be used
+as bearer credentials, and bearer tokens cannot be used as cookies. Password changes
+and resets revoke both types through `token_version`; password changes replace the
+current session. Existing web tokens are exchanged for cookies on the next app visit
+and removed from localStorage. Previously issued bearer tokens keep their original
+expiry unless revoked by a password change/reset.
+
+Auth regression checks: `npm run test:auth` (Node 22.13+ with built-in SQLite).
+These use an isolated in-memory database and never access production.
+
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/session` — exchange a legacy bearer token for a web cookie session
+- `POST /api/auth/logout` — clear the current web session cookie
 - `GET /api/auth/me`
 - `GET /api/auth/verify-email`
 - `POST /api/auth/resend-verification`

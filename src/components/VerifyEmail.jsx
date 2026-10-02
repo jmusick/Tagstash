@@ -24,10 +24,7 @@ function VerifyEmail({ logoSrc }) {
 
     authAPI
       .verifyEmail(token)
-      .then((response) => {
-        localStorage.setItem('token', response.data.token);
-        return refreshCurrentUser();
-      })
+      .then(() => refreshCurrentUser())
       .then(() => {
         setStatus('success');
         // Switch out of verify mode after auth state is ready.

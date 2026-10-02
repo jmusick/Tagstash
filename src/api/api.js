@@ -4,25 +4,19 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    'X-Tagstash-Client': 'web',
   },
 });
 
-// Add token to requests if available
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 // Auth API
 export const authAPI = {
+  upgradeSession: (token) =>
+    api.post('/auth/session', null, { headers: { Authorization: `Bearer ${token}` } }),
+
+  logout: () => api.post('/auth/logout'),
   register: (username, email, password) =>
     api.post('/auth/register', { username, email, password }),
   
@@ -150,7 +144,11 @@ export const supportAPI = {
 
 export const profileAPI = {
   getPublicProfile: (username) =>
-    api.get(`/profiles/${encodeURIComponent(username)}`),
+    api.get(`/profiles/${encodeURIComponent(username)}`, {
+      // The public API uses wildcard CORS, which cannot be combined with credentials.
+      withCredentials: false,
+      headers: { 'X-Tagstash-Client': undefined },
+    }),
 };
 
 export default api;

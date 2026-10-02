@@ -211,6 +211,7 @@ function App() {
       if (!silent) setLoading(true)
       const response = await bookmarksAPI.getAll()
       setBookmarks(response.data.bookmarks)
+      setError((previousError) => previousError === 'Failed to fetch bookmarks' ? '' : previousError)
     } catch (err) {
       setError('Failed to fetch bookmarks')
       console.error(err)

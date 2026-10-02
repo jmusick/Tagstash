@@ -451,15 +451,11 @@ function Settings({
         return;
       }
 
-      const response = await authAPI.updatePassword(
+      await authAPI.updatePassword(
         passwordForm.currentPassword,
         passwordForm.newPassword,
         passwordForm.confirmPassword
       );
-      // Changing the password revokes every existing token, including this one.
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-      }
       setSuccess('Password updated successfully!');
       setPasswordForm({
         currentPassword: '',
