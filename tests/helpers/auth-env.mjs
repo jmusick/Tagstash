@@ -25,7 +25,19 @@ export async function createAuthEnv({ emailTokenHashes = true } = {}) {
         },
       };
     },
-    async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); },
+    // D1 batches run in order inside one transaction; mirror that so atomicity is really tested.
+    async batch(statements) {
+      sqlite.exec('BEGIN');
+      try {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        sqlite.exec('COMMIT');
+        return results;
+      } catch (error) {
+        sqlite.exec('ROLLBACK');
+        throw error;
+      }
+    },
   };
   return { DB, sqlite, password, JWT_SECRET: 'isolated-test-secret-never-used-in-production', APP_URL: 'https://tagsta.sh' };
 }

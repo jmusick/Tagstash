@@ -1766,10 +1766,19 @@ async function handleAuth(request, env, segments) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(passwordHash, auth.user.id).run();
+    // One transaction: new password, sessions revoked, and any reset link emailed earlier
+    // (possibly to an attacker-readable inbox) can no longer overwrite it.
+    const bumpsVersion = await usersTableHasColumn(db, 'token_version');
+    await db.batch([
+      db
+        .prepare(`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP${bumpsVersion ? ', token_version = token_version + 1' : ''} WHERE id = ?`)
+        .bind(passwordHash, auth.user.id),
+      db
+        .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL')
+        .bind(auth.user.id),
+    ]);
 
     // Sign out every other session (including a stolen token), but keep this one alive.
-    await bumpTokenVersion(db, auth.user.id);
     const token = await signUserToken(auth.user, env, request);
 
     return sessionResponse(request, { message: 'Password updated successfully', token });
@@ -2264,25 +2273,38 @@ async function handleAuth(request, env, segments) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await db
-      .prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .bind(passwordHash, record.user_id)
-      .run();
-
-    await bumpTokenVersion(db, record.user_id);
-
+    // Hash first (slow), then change everything in one D1 batch (a transaction). The password
+    // update is conditional on the token still being unused and unexpired, so of any number of
+    // simultaneous redemptions exactly one can change the password, and failure leaves no
+    // partial state. D1 serializes writes, so a loser sees the winner's used_at.
+    const nowIso = new Date().toISOString();
+    const tokenStillValid = 'EXISTS (SELECT 1 FROM password_reset_tokens WHERE id = ? AND used_at IS NULL AND expires_at > ?)';
     // Proving control of the inbox is enough to lift a brute-force lockout.
-    if (await usersTableHasColumn(db, 'failed_attempts')) {
-      await db
-        .prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?')
-        .bind(record.user_id)
-        .run();
-    }
+    const clearsLockout = await usersTableHasColumn(db, 'failed_attempts');
+    const bumpsVersion = await usersTableHasColumn(db, 'token_version');
+    const [passwordUpdate] = await db.batch([
+      db
+        .prepare(
+          `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP${bumpsVersion ? ', token_version = token_version + 1' : ''}${clearsLockout ? ', failed_attempts = 0, locked_until = NULL' : ''}
+           WHERE id = ? AND ${tokenStillValid}`
+        )
+        .bind(passwordHash, record.user_id, record.id, nowIso),
+      db
+        .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL AND expires_at > ?')
+        .bind(record.id, nowIso),
+      // Any other outstanding link for this account dies with the successful reset.
+      db
+        .prepare(
+          `UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP
+           WHERE user_id = ? AND used_at IS NULL
+             AND EXISTS (SELECT 1 FROM password_reset_tokens WHERE id = ? AND used_at IS NOT NULL)`
+        )
+        .bind(record.user_id, record.id),
+    ]);
 
-    await db
-      .prepare('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .bind(record.id)
-      .run();
+    if (!passwordUpdate?.meta?.changes) {
+      return jsonResponse({ error: 'This reset link has already been used or has expired. Please request a new one.' }, 400);
+    }
 
     const updatedUser = await db
       .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
