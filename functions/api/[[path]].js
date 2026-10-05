@@ -178,7 +178,7 @@ const sendVerificationEmail = async (email, username, token, env) => {
   ].join('\n');
   const htmlBody = `
 <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
-  <p>Hi ${username},</p>
+  <p>Hi ${escapeHtml(username)},</p>
   <p>Thanks for signing up for Tagstash. Please verify your email address by clicking the button below:</p>
   <p>
     <a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">Verify email address</a>
@@ -220,7 +220,7 @@ const sendPasswordResetEmail = async (email, username, token, env) => {
 
   const htmlBody = `
 <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
-  <p>Hi ${username},</p>
+  <p>Hi ${escapeHtml(username)},</p>
   <p>We received a request to reset your Tagstash password. Click the button below to choose a new one:</p>
   <p>
     <a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">Reset password</a>
@@ -1389,6 +1389,14 @@ async function handleAuth(request, env, segments) {
 
     if (/\s/.test(trimmedUsername)) {
       return jsonResponse({ error: 'Username cannot contain spaces' }, 400);
+    }
+
+    if (trimmedUsername.length < 2) {
+      return jsonResponse({ error: 'Username must be at least 2 characters' }, 400);
+    }
+
+    if (trimmedUsername.length > 50) {
+      return jsonResponse({ error: 'Username must be 50 characters or less' }, 400);
     }
 
     if (password.length < 6) {
@@ -2702,9 +2710,17 @@ async function handleBookmarks(request, env, segments) {
       return jsonResponse({ error: 'Favorite tags are not configured yet' }, 503);
     }
 
+    // Tags are global rows, so only reveal or favorite one the caller's own bookmarks use.
+    // An existing favorite stays removable even if the tag is no longer used.
     const tag = await db
-      .prepare('SELECT id, name FROM tags WHERE id = ?')
-      .bind(tagId)
+      .prepare(
+        `SELECT t.id, t.name FROM tags t
+         WHERE t.id = ?
+           AND (EXISTS (SELECT 1 FROM bookmark_tags bt JOIN bookmarks b ON bt.bookmark_id = b.id
+                        WHERE bt.tag_id = t.id AND b.user_id = ?)
+                OR EXISTS (SELECT 1 FROM favorite_tags ft WHERE ft.tag_id = t.id AND ft.user_id = ?))`
+      )
+      .bind(tagId, auth.user.id, auth.user.id)
       .first();
 
     if (!tag) {

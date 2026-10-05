@@ -23,6 +23,11 @@ const escapeHtml = (value) =>
     "'": '&#39;',
   }[c]));
 
+// JSON inside a <script> element ends at the first "</script", so "<" (and the other
+// characters that can change how the HTML parser or older JS engines read it) is escaped.
+const serializeJsonLd = (value) =>
+  JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
 export async function onRequestGet({ request, env, params, next }) {
   const response = await next();
 
@@ -106,7 +111,7 @@ export async function onRequestGet({ request, env, params, next }) {
 <meta name="twitter:description" content="${safeDescription}" />
 <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
 ${found ? '' : '<meta name="robots" content="noindex" />'}
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
+${jsonLd ? `<script type="application/ld+json">${serializeJsonLd(jsonLd)}</script>` : ''}
 `;
 
   // index.html already ships default description/canonical/OG/Twitter/JSON-LD tags
