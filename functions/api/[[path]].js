@@ -684,9 +684,14 @@ const bumpTokenVersion = async (db, userId) => {
 const LOGIN_MAX_FAILED_ATTEMPTS = 8;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
-// Per-IP / per-email caps, counted from auth_events: [event type, max events, window minutes].
+// Per-IP / per-email caps, counted from auth_events: [event type(s), max events, window minutes].
+// These are SOFT limits: isAuthRateLimited counts, then the handler records, so a burst of
+// simultaneous requests can overshoot a cap by up to the burst size. That is acceptable here
+// (they exist to slow spraying and email amplification); the hard control for guessing one
+// account's password is the atomic per-account lockout in recordFailedLogin, with the
+// Cloudflare rate-limiting rule in front of both.
 const AUTH_RATE_LIMITS = {
-  loginFailuresPerIp: ['login_failed', 20, 15],
+  loginFailuresPerIp: [['login_failed', 'password_confirmation_failed'], 20, 15],
   resetRequestsPerIp: ['password_reset_requested', 10, 60],
   resetRequestsPerEmail: ['password_reset_requested', 5, 60],
   resetRequestsPerEmailBurst: ['password_reset_requested', 1, 1],
@@ -721,13 +726,14 @@ const recordAuthEvent = async (db, request, eventType, { email = null, userId = 
 const isAuthRateLimited = async (db, [eventType, max, windowMinutes], by, value) => {
   if (!value) return false;
   const column = by === 'email' ? 'email' : 'ip';
+  const eventTypes = Array.isArray(eventType) ? eventType : [eventType];
   try {
     const row = await db
       .prepare(
         `SELECT COUNT(*) AS n FROM auth_events
-         WHERE event_type = ? AND ${column} = ? AND created_at > datetime('now', ?)`
+         WHERE event_type IN (${eventTypes.map(() => '?').join(', ')}) AND ${column} = ? AND created_at > datetime('now', ?)`
       )
-      .bind(eventType, value, `-${windowMinutes} minutes`)
+      .bind(...eventTypes, value, `-${windowMinutes} minutes`)
       .first();
     return Number(row?.n || 0) >= max;
   } catch {
@@ -743,23 +749,84 @@ const getLockedUntil = (user) => {
   return lockedUntil > Date.now() ? lockedUntil : null;
 };
 
+// Counts a wrong password and applies the lock in ONE statement, so concurrent failures can't
+// overwrite each other's count (the old read-modify-write left eight parallel misses at 1).
+// SQLite evaluates every right-hand side against the pre-update row. While a lock is active the
+// row is left alone: a miss that was already in flight when the lock landed must neither
+// extend it nor, worse, reset it. The counter restarts from zero when a lock is applied, so an
+// expired lock doesn't re-lock on the very next miss. Returns true if the account is now locked.
 const recordFailedLogin = async (db, user) => {
   if (!('failed_attempts' in user)) return false;
-  // The counter restarts from zero when a lock is applied, so an expired lock doesn't
-  // re-lock on the very next miss.
-  const attempts = Number(user.failed_attempts || 0) + 1;
-  const locked = attempts >= LOGIN_MAX_FAILED_ATTEMPTS;
-  await db
-    .prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?')
-    .bind(locked ? 0 : attempts, locked ? Date.now() + LOGIN_LOCKOUT_MS : null, user.id)
-    .run();
-  return locked;
+  const now = Date.now();
+  const row = await db
+    .prepare(
+      `UPDATE users SET
+         failed_attempts = CASE
+           WHEN locked_until > ?1 THEN failed_attempts
+           WHEN failed_attempts + 1 >= ?2 THEN 0
+           ELSE failed_attempts + 1 END,
+         locked_until = CASE
+           WHEN locked_until > ?1 THEN locked_until
+           WHEN failed_attempts + 1 >= ?2 THEN ?3
+           ELSE locked_until END
+       WHERE id = ?4
+       RETURNING locked_until`
+    )
+    .bind(now, LOGIN_MAX_FAILED_ATTEMPTS, now + LOGIN_LOCKOUT_MS, user.id)
+    .first();
+  return Number(row?.locked_until || 0) > now;
+};
+
+// Fresh lock state for the moment of a successful password check: the row read at the start of
+// the request may predate a lock applied by concurrent guesses.
+const getCurrentLockedUntil = async (db, user) => {
+  if (!('locked_until' in user)) return null;
+  const row = await db.prepare('SELECT locked_until FROM users WHERE id = ?').bind(user.id).first();
+  return getLockedUntil(row || {});
 };
 
 // Takes a SELECT * row; a no-op when there's nothing to clear or the columns don't exist.
 const clearLoginLockout = async (db, user) => {
   if (!user?.failed_attempts && !user?.locked_until) return;
   await db.prepare('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?').bind(user.id).run();
+};
+
+// Password re-entry on an already-signed-in account (change username/email/password). These
+// routes are a guessing oracle for a stolen session, so they share login's budgets: the same
+// per-account counter and lock (so rotating between endpoints, or between them and /login,
+// gains nothing) and the same per-IP cap. Returns null when the password is correct, or the
+// 401/429 Response to send. Call it only after cheap input validation, so malformed requests
+// don't spend budget. A correct password clears the counter, as at login.
+const confirmCurrentPassword = async (db, request, userId, password, wrongPasswordMessage) => {
+  if (await isAuthRateLimited(db, AUTH_RATE_LIMITS.loginFailuresPerIp, 'ip', getClientIp(request))) {
+    await recordAuthEvent(db, request, 'login_rate_limited', { userId });
+    return rateLimitedResponse('Too many failed password attempts from your network. Please try again later.');
+  }
+
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return jsonResponse({ error: 'User not found' }, 404);
+
+  const lockedUntil = getLockedUntil(user);
+  if (lockedUntil) {
+    await recordAuthEvent(db, request, 'login_rejected_locked', { email: user.email, userId });
+    return rateLimitedResponse(lockedOutMessage(lockedUntil));
+  }
+
+  if (typeof password === 'string' && (await bcrypt.compare(password, user.password_hash))) {
+    // Same guard as login: a guess that was in flight while concurrent misses locked the account.
+    const lockedNow = await getCurrentLockedUntil(db, user);
+    if (lockedNow) return rateLimitedResponse(lockedOutMessage(lockedNow));
+    await clearLoginLockout(db, user);
+    return null;
+  }
+
+  const nowLocked = await recordFailedLogin(db, user);
+  await recordAuthEvent(db, request, 'password_confirmation_failed', { email: user.email, userId });
+  if (nowLocked) {
+    await recordAuthEvent(db, request, 'account_locked', { email: user.email, userId });
+    return rateLimitedResponse(lockedOutMessage((await getCurrentLockedUntil(db, user)) || Date.now() + LOGIN_LOCKOUT_MS));
+  }
+  return jsonResponse({ error: wrongPasswordMessage }, 401);
 };
 
 const lockedOutMessage = (lockedUntil) => {
@@ -1415,9 +1482,17 @@ async function handleAuth(request, env, segments) {
       await recordAuthEvent(db, request, 'login_failed', { email: normalizedEmail, userId: user.id });
       if (nowLocked) {
         await recordAuthEvent(db, request, 'account_locked', { email: normalizedEmail, userId: user.id });
-        return rateLimitedResponse(lockedOutMessage(Date.now() + LOGIN_LOCKOUT_MS));
+        return rateLimitedResponse(lockedOutMessage((await getCurrentLockedUntil(db, user)) || Date.now() + LOGIN_LOCKOUT_MS));
       }
       return jsonResponse({ error: 'Invalid email or password' }, 401);
+    }
+
+    // A correct guess that was already in flight when concurrent misses locked the account
+    // must not slip through the lock.
+    const lockedNow = await getCurrentLockedUntil(db, user);
+    if (lockedNow) {
+      await recordAuthEvent(db, request, 'login_rejected_locked', { email: normalizedEmail, userId: user.id });
+      return rateLimitedResponse(lockedOutMessage(lockedNow));
     }
 
     if (!user.email_verified) {
@@ -1647,10 +1722,8 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'New username must be different from current username' }, 400);
     }
 
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      return jsonResponse({ error: 'Incorrect password' }, 401);
-    }
+    const passwordFailure = await confirmCurrentPassword(db, request, auth.user.id, password, 'Incorrect password');
+    if (passwordFailure) return passwordFailure;
 
     await db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(trimmedUsername, auth.user.id).run();
 
@@ -1695,10 +1768,8 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'User not found' }, 404);
     }
 
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      return jsonResponse({ error: 'Incorrect password' }, 401);
-    }
+    const passwordFailure = await confirmCurrentPassword(db, request, auth.user.id, password, 'Incorrect password');
+    if (passwordFailure) return passwordFailure;
 
     if (normalizeEmail(user.email) === normalizedNewEmail) {
       return jsonResponse({ error: 'New email must be different from current email' }, 400);
@@ -1760,10 +1831,8 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'User not found' }, 404);
     }
 
-    const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!validPassword) {
-      return jsonResponse({ error: 'Incorrect current password' }, 401);
-    }
+    const passwordFailure = await confirmCurrentPassword(db, request, auth.user.id, currentPassword, 'Incorrect current password');
+    if (passwordFailure) return passwordFailure;
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     // One transaction: new password, sessions revoked, and any reset link emailed earlier
