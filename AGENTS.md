@@ -110,6 +110,10 @@ Settings lets users generate/revoke personal API keys (`api_keys` table, `0001_i
 
 `requireSuperAdmin(db, authUser, env)` gates the admin routes (`GET/PATCH/DELETE /api/auth/admin/users*`). On every check it cross-references `SUPER_ADMIN_EMAIL` (and any other configured role mapping) via `isSuperAdminEmail`/`getRoleForEmail`, and self-heals `users.role` to match via `ensureUserRoleMatchesConfig` — so a configured super-admin's role can't be permanently changed through the admin API itself; it'll just resync on the next check. Changing who's a super-admin means changing env config, not just editing the `users` row.
 
+## Changing an account's email is a two-step, inbox-verified flow
+
+`PUT /auth/email` never writes `users.email`/`role`. After the password check it stores a hashed token in `email_change_tokens` (`0014`, fail-closed 503 until applied), mails the link to the **new** address and warns the old one. The link reuses `/verify-email?token=`: `confirmEmailChange` claims the token atomically, then sets email + `getRoleForEmail` role, clears the user's reset tokens, bumps `token_version`, and issues **no session** (the frontend shows "sign in again"). Keep role promotion behind this confirmation — an unverified address must never change effective privileges.
+
 ## Frontend: real client-side routing (react-router-dom)
 
 `src/main.jsx` wraps the app in `<BrowserRouter>`, and `src/App.jsx` (the always-mounted root) renders a `<Suspense><Routes>…</Routes></Suspense>` tree using `useNavigate`/`useParams`/`useSearchParams` — there's no manual `activePage` string or `window.location.pathname` parsing.

@@ -244,6 +244,76 @@ const sendPasswordResetEmail = async (email, username, token, env) => {
   );
 };
 
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+
+const sendEmailChangeConfirmation = async (newEmail, username, token, env) => {
+  const appUrl = (env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const confirmUrl = `${appUrl}/verify-email?token=${token}`;
+  const safeName = escapeHtml(username);
+  await sendEmail(
+    {
+      from: emailFrom('EMAIL_FROM_VERIFICATION', 'welcome@tagsta.sh', env),
+      to: newEmail,
+      replyTo: env.EMAIL_REPLY_TO || undefined,
+      subject: 'Confirm your new Tagstash email address',
+      text: [
+        `Hi ${username},`,
+        '',
+        'Open this link to confirm this address as the new email for your Tagstash account:',
+        confirmUrl,
+        '',
+        'This link expires in 24 hours. You will be signed out everywhere and must sign in again.',
+        'If you did not request this change, ignore this email and nothing will change.',
+      ].join('\n'),
+      html: `
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
+  <p>Hi ${safeName},</p>
+  <p>Confirm this address as the new email for your Tagstash account:</p>
+  <p><a href="${confirmUrl}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">Confirm new email</a></p>
+  <p>If the button does not work, copy and paste this link into your browser:</p>
+  <p><a href="${confirmUrl}">${confirmUrl}</a></p>
+  <p>This link expires in 24 hours. You will be signed out everywhere and must sign in again.</p>
+  <p>If you did not request this change, ignore this email and nothing will change.</p>
+</div>`,
+    },
+    env
+  );
+};
+
+// Tell the address being replaced. Best effort: never blocks the change itself.
+const notifyOldEmailAboutChange = async (oldEmail, username, newEmail, completed, env) => {
+  try {
+    await sendEmail(
+      {
+        from: emailFrom('EMAIL_FROM_PASSWORD_RESET', 'support@tagsta.sh', env),
+        to: oldEmail,
+        replyTo: env.EMAIL_REPLY_TO || undefined,
+        subject: completed ? 'Your Tagstash email address was changed' : 'Email change requested on your Tagstash account',
+        text: [
+          `Hi ${username},`,
+          '',
+          completed
+            ? `The email address on your Tagstash account was changed to ${newEmail}.`
+            : `A change of your Tagstash email address to ${newEmail} was requested. Nothing changes until that address is confirmed.`,
+          'If this was not you, reset your password immediately and contact support.',
+        ].join('\n'),
+        html: `
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827;">
+  <p>Hi ${escapeHtml(username)},</p>
+  <p>${completed
+    ? `The email address on your Tagstash account was changed to ${escapeHtml(newEmail)}.`
+    : `A change of your Tagstash email address to ${escapeHtml(newEmail)} was requested. Nothing changes until that address is confirmed.`}</p>
+  <p>If this was not you, reset your password immediately and contact support.</p>
+</div>`,
+      },
+      env
+    );
+  } catch (error) {
+    console.warn('[auth] Failed to notify previous email address', error?.message || error);
+  }
+};
+
 const jsonResponse = (payload, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -704,6 +774,64 @@ const ensureUserRoleMatchesConfig = async (db, user, env) => {
     user.role = expectedRole;
   }
   return user;
+};
+
+// Redeems an email-change link. Returns null when the token is not an email-change token.
+// Never issues a session: whoever opens the link proved inbox access, not account access.
+const confirmEmailChange = async (db, token, env) => {
+  if (!(await tableExists(db, 'email_change_tokens'))) return null;
+
+  const tokenHash = await hashApiKey(token);
+  const record = await db
+    .prepare('SELECT id, user_id, new_email, expires_at, used_at FROM email_change_tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first();
+  if (!record) return null;
+
+  if (record.used_at) {
+    return jsonResponse({ error: 'This confirmation link has already been used.' }, 400);
+  }
+  if (new Date(record.expires_at) < new Date()) {
+    return jsonResponse({ error: 'This confirmation link has expired. Please request the change again.' }, 400);
+  }
+
+  // Atomic single-use claim: only one concurrent redemption can win.
+  const claim = await db
+    .prepare('UPDATE email_change_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL')
+    .bind(record.id)
+    .run();
+  if (!claim.meta?.changes) {
+    return jsonResponse({ error: 'This confirmation link has already been used.' }, 400);
+  }
+
+  const owner = await db.prepare('SELECT id, username, email FROM users WHERE id = ?').bind(record.user_id).first();
+  if (!owner) {
+    return jsonResponse({ error: 'Invalid or expired verification link.' }, 400);
+  }
+
+  const taken = await db
+    .prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?')
+    .bind(record.new_email, owner.id)
+    .first();
+  if (taken) {
+    return jsonResponse({ error: 'That email address is already in use.' }, 400);
+  }
+
+  // The role follows the now-verified address; sessions and recovery links tied to the old identity die.
+  await db
+    .prepare('UPDATE users SET email = ?, role = ?, email_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .bind(record.new_email, getRoleForEmail(record.new_email, env), owner.id)
+    .run();
+  await db.prepare('DELETE FROM email_change_tokens WHERE user_id = ? AND used_at IS NULL').bind(owner.id).run();
+  await db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').bind(owner.id).run();
+  await bumpTokenVersion(db, owner.id);
+
+  await notifyOldEmailAboutChange(owner.email, owner.username, record.new_email, true, env);
+
+  return jsonResponse({
+    message: 'Email address updated. Please sign in again with your new email.',
+    emailChanged: true,
+  });
 };
 
 const requireSuperAdmin = async (db, authUser, env) => {
@@ -1351,6 +1479,8 @@ async function handleAuth(request, env, segments) {
       .first();
 
     if (!record) {
+      const changeResult = await confirmEmailChange(db, token, env);
+      if (changeResult) return changeResult;
       return jsonResponse({ error: 'Invalid or expired verification link.' }, 400);
     }
 
@@ -1552,8 +1682,12 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Email is already in use' }, 400);
     }
 
+    if (!(await tableExists(db, 'email_change_tokens'))) {
+      return jsonResponse({ error: 'Email changes are temporarily unavailable. Please try again later.' }, 503);
+    }
+
     const user = await db
-      .prepare('SELECT password_hash FROM users WHERE id = ?')
+      .prepare('SELECT password_hash, username, email FROM users WHERE id = ?')
       .bind(auth.user.id)
       .first();
 
@@ -1566,19 +1700,33 @@ async function handleAuth(request, env, segments) {
       return jsonResponse({ error: 'Incorrect password' }, 401);
     }
 
-    const updatedRole = getRoleForEmail(normalizedNewEmail, env);
+    if (normalizeEmail(user.email) === normalizedNewEmail) {
+      return jsonResponse({ error: 'New email must be different from current email' }, 400);
+    }
 
+    // The account keeps its current email and role until the NEW inbox proves ownership.
+    await db.prepare('DELETE FROM email_change_tokens WHERE user_id = ? AND used_at IS NULL').bind(auth.user.id).run();
+    const changeToken = generateVerificationToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     await db
-      .prepare('UPDATE users SET email = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-      .bind(normalizedNewEmail, updatedRole, auth.user.id)
+      .prepare('INSERT INTO email_change_tokens (user_id, new_email, token_hash, expires_at) VALUES (?, ?, ?, ?)')
+      .bind(auth.user.id, normalizedNewEmail, await hashApiKey(changeToken), expiresAt)
       .run();
 
-    const updatedUser = await db
-      .prepare('SELECT id, username, email, membership_tier, role FROM users WHERE id = ?')
-      .bind(auth.user.id)
-      .first();
+    try {
+      await sendEmailChangeConfirmation(normalizedNewEmail, user.username, changeToken, env);
+    } catch (error) {
+      await db.prepare('DELETE FROM email_change_tokens WHERE token_hash = ?').bind(await hashApiKey(changeToken)).run();
+      console.warn('[auth] Failed to send email-change confirmation', error?.message || error);
+      return jsonResponse({ error: 'Could not send the confirmation email. Please try again later.' }, 503);
+    }
 
-    return jsonResponse({ message: 'Email updated successfully', user: updatedUser });
+    await notifyOldEmailAboutChange(user.email, user.username, normalizedNewEmail, false, env);
+
+    return jsonResponse({
+      message: `We sent a confirmation link to ${normalizedNewEmail}. Your email will not change until you open it.`,
+      pending: true,
+    });
   }
 
   if (request.method === 'PUT' && segments[1] === 'password') {

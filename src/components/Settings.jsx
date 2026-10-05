@@ -414,10 +414,9 @@ function Settings({
       }
 
       const response = await authAPI.updateEmail(emailForm.newEmail, emailForm.password);
-      updateUser(response.data.user);
-      setSuccess('Email updated successfully!');
+      setSuccess(response.data.message || 'Check your new inbox to confirm the change.');
       setEmailForm({
-        newEmail: response.data.user.email,
+        newEmail: '',
         password: '',
       });
     } catch (err) {

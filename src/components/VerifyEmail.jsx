@@ -25,13 +25,19 @@ function VerifyEmail({ logoSrc }) {
 
     authAPI
       .verifyEmail(token)
-      .then(() => refreshCurrentUser())
-      .then(() => {
-        setStatus('success');
-        // Switch out of verify mode after auth state is ready.
-        redirectTimer = window.setTimeout(() => {
-          window.location.assign('/');
-        }, 800);
+      .then((response) => {
+        // An email-change link proves inbox access only: no session, the user signs in again.
+        if (response?.data?.emailChanged) {
+          setStatus('changed');
+          return null;
+        }
+        return refreshCurrentUser().then(() => {
+          setStatus('success');
+          // Switch out of verify mode after auth state is ready.
+          redirectTimer = window.setTimeout(() => {
+            window.location.assign('/');
+          }, 800);
+        });
       })
       .catch((err) => {
         setStatus('error');
@@ -60,6 +66,16 @@ function VerifyEmail({ logoSrc }) {
           <>
             <p className="auth-subtitle">Email verified!</p>
             <p className="auth-description">Your account is active. You are now signed in.</p>
+          </>
+        )}
+
+        {status === 'changed' && (
+          <>
+            <p className="auth-subtitle">Email address updated</p>
+            <p className="auth-description">For your security you were signed out everywhere. Sign in again with your new email.</p>
+            <a href="/" className="auth-button" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+              Go to sign in
+            </a>
           </>
         )}
 
