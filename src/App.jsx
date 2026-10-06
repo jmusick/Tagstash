@@ -990,10 +990,9 @@ function App() {
                     />
                   </div>
                 </main>
-                <AppFooter>
+                <AppFooter version={version}>
                   <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
                   <Link className="footer-privacy-link" to="/support">Support</Link>
-                  <span className="version">v{version}</span>
                 </AppFooter>
               </div>
             ) : homeElement
@@ -1018,10 +1017,9 @@ function App() {
                     <TagsPage />
                   </div>
                 </main>
-                <AppFooter>
+                <AppFooter version={version}>
                   <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
                   <Link className="footer-privacy-link" to="/support">Support</Link>
-                  <span className="version">v{version}</span>
                 </AppFooter>
               </div>
             ) : homeElement
@@ -1277,10 +1275,9 @@ function App() {
           )}
                   </BookmarkBrowser>
                 </main>
-                <AppFooter>
+                <AppFooter version={version}>
                   <Link className="footer-privacy-link" to="/privacy">Privacy Policy</Link>
                   <Link className="footer-privacy-link" to="/support">Support</Link>
-                  <span className="version">v{version}</span>
                 </AppFooter>
               </div>
             ) : homeElement

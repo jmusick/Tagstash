@@ -1,4 +1,4 @@
-function AppFooter({ children }) {
+function AppFooter({ children, version }) {
   return (
     <footer className="app-footer">
       <span className="footer-copyright">
@@ -11,6 +11,7 @@ function AppFooter({ children }) {
       <button type="button" className="footer-privacy-link" data-cookie-preferences>
         Cookie Choices
       </button>
+      {version && <span className="version">v{version}</span>}
     </footer>
   )
 }
