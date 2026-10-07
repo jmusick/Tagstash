@@ -67,6 +67,43 @@ That hosted service is the official paid offering run by Stone Dragon Media LLC.
 - Context API
 - lucide-react
 
+The public `/features` page is prerendered during `npm run build` from the same
+React component used in the app. `scripts/prerender-features.mjs` writes complete
+HTML and page metadata to `dist/features.html`, including the styles needed
+before JavaScript loads. Feature copy lives in `src/components/FeaturesPage.jsx`.
+Cloudflare Pages serves the file at `/features`; the middleware must also list that
+path as an indexable page. `/features/` and `/features.html` redirect to `/features`.
+Homepage feature/FAQ copy and page-specific structured data are shared between
+React and Pages Functions in `src/content/` to keep crawler and browser content aligned.
+
+Feature demonstrations continuously capture the local interface during real
+interactions, exported as silent looping MP4s in `public/feature-demos/`.
+An animated pointer and click highlight follow the recorded control coordinates.
+Each section loads its selected clip when visible;
+visitors can pause playback, switch clips, open a larger view, or read the text
+walkthrough. Reduced-motion preferences default to paused playback.
+
+To prepare a local demo collection after applying migrations, run
+`node scripts/seed-feature-demo.mjs`. It uses **only local D1** and creates the
+verified `features-demo@example.test` account (password `TagstashDemo2026!`) with
+overlapping tags, favorites, and private bookmarks. Use `http://localhost:3000`
+for login: that origin is allowed by the local web-session checks. An HTML import
+fixture is written to `.tmp/feature-demo/import.html`.
+
+`scripts/capture-feature-demo.mjs` accepts an authorized @Browser tab handle and
+captures frames while that tab is driven through the demonstrations. Its `start`,
+`action`, `hold`, and `stop` helpers write `.tmp/feature-demo/recordings.json` with
+frame timestamps, captions, and click target coordinates. Use `stop` in a `finally`
+block so failures do not leave capture running. Keep the default 1280 × 720 viewport
+and bring each target into view before recording its coordinates.
+
+`node scripts/render-feature-demos.mjs` renders that capture manifest with FFmpeg;
+set `FFMPEG_PATH` to a local executable, or install `ffmpeg-static` in
+`.tmp/feature-demo/tools`. Output is H.264 at 24 fps, 1120 × 704, with captions
+below the app. Pointer motion is an editorial overlay between real click targets,
+rather than an operating-system cursor track. The extension clip
+shows install options, and the merge clip previews tag selection before confirmation.
+
 ### Backend
 
 - Cloudflare Pages Functions

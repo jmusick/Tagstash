@@ -1,7 +1,8 @@
 // Dynamic XML sitemap: static marketing pages + all public profile URLs.
 const STATIC_PATHS = [
   // Content-change dates; update these when editing a page's substantive content.
-  { path: '/', lastmod: '2026-10-02' },
+  { path: '/', lastmod: '2026-10-07' },
+  { path: '/features', lastmod: '2026-10-07' },
   { path: '/privacy', lastmod: '2026-09-23' },
   { path: '/support', lastmod: '2026-08-17' },
 ];
